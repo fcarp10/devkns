@@ -10,7 +10,6 @@ openfaas | nats/kafka | elasticsearch
 -------------------------------------
                  k3s                                              
 -------------------------------------
-
 ```
 
 ### Used Helm charts
@@ -24,19 +23,19 @@ openfaas | nats/kafka | elasticsearch
 
 `curl` is required for the script to work. Deploy with:
 
-```
+```shell
 ./deploy.sh
 ```
 
 By default, it deploys with `NATS`. To use `Kafka` specify option: 
 
-```
+```shell
 ./deploy.sh -k
 ```
 
 To uninstall everything, run the following script:
 
-```
+```shell
 /usr/local/bin/k3s-uninstall.sh
 ```
 
@@ -51,7 +50,7 @@ To uninstall everything, run the following script:
 ### Deployment
 
 Deploy and connect to the vm:
-```
+```shell
 vagrant up
 ```
 Run `vagrant ssh` to connect to the VM.
@@ -61,7 +60,7 @@ Run `vagrant ssh` to connect to the VM.
 
 Apply k3s configuration:
 
-```
+```shell
 mkdir ~/.kube
 sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
 kubectl rollout status -n openfaas deploy/gateway
@@ -69,7 +68,7 @@ kubectl port-forward -n openfaas svc/gateway 8080:8080 &
 ```
 
 Log in with faas cli:
-```
+```shell
 PASSWORD=$(
     sudo kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode
     echo
@@ -78,7 +77,7 @@ echo -n $PASSWORD | faas-cli login --username admin --password-stdin
 ```
 
 Deploy and test a function:
-```
+```shell
 faas deploy --image fcarp10/figlet --name figlet --fprocess "figlet"
 curl http://127.0.0.1:8080/function/figlet -d "Hello World!"
 ```
