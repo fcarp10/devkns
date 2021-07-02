@@ -1,16 +1,18 @@
 # devkns
 
-Script for deployment of k3s, OpenFaas, Elasticsearch and NATS/Kafka.
+
+Script for deployment of k3s, NATS|Kafka|RabbitMQ, Elasticsearch and OpenFaas.
 
 ```
--------------------------------------
-             functions
--------------------------------------
-openfaas | nats/kafka | elasticsearch  
--------------------------------------
-                 k3s                                              
--------------------------------------
+------------------------------------------------
+                    functions
+------------------------------------------------
+ nats/kafka/rabbitmq | elasticsearch | openfaas
+------------------------------------------------
+                       k3s                                              
+------------------------------------------------
 ```
+
 
 ### Used Helm charts
 
@@ -18,19 +20,23 @@ openfaas | nats/kafka | elasticsearch
 - [Elasticsearch](https://Helm.elastic.co)
 - [NATS](https://nats-io.github.io/k8s/helm/charts/)
 - [Kafka (unofficial)](https://bitnami.com/stack/kafka/helm)
+- [RabbitMQ (unofficial)](https://bitnami.com/stack/rabbitmq/helm)
+
+
+
 
 ## [Option 1] Installation
 
-`curl` is required for the script to work. Deploy with:
+`curl` is required for the script to work. To deploy `nats` + `elasticsearch` + `openfaas`:
 
 ```shell
-./deploy.sh
+./deploy.sh -c 'nats' -d 'true' -p 'true'
 ```
 
-By default, it deploys with `NATS`. To use `Kafka` specify option: 
+To deploy `rabbitmq` + `elasticsearch` only:
 
 ```shell
-./deploy.sh -k
+./deploy.sh -c 'rabbitmq' -d 'true' -p 'false'
 ```
 
 To uninstall everything, run the following script:
@@ -56,7 +62,10 @@ vagrant up
 Run `vagrant ssh` to connect to the VM.
 
 
-## Test
+
+
+
+## Test OpenFaas
 
 Apply k3s configuration:
 

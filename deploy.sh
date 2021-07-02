@@ -28,36 +28,32 @@ function log() {
 usage='Usage:
 '$0' [OPTION]
 OPTIONS:
-\n -k --kafka
-\t deploys kafka instead of nats.
-\n -r --rabbitmq
-\t deploys rabbitmq instead of nats.
-\n -h --help
-\t Shows available options.
-\n\t Only one option is allowed.
+\n -c ["nats"|"kafka"|"rabbitmq"]
+\t deploys nats, kafka or rabbitmq.
+\n -d ["true"|"false"]
+\t deploys Elasticsearch.
+\n -p ["true"|"false"]
+\t deploys OpenFaas.
 '
 
-withkafka=false
-withrabbitmq=false
+# default values
+communication="nats"
+database=true
+processing=true
 
-while [ "$1" != "" ]; do
-    case $1 in
-    --kafka | -k)
-        withkafka=true
+while getopts ":c:d:p:" opt; do
+    case $opt in
+        c) communication="$OPTARG"
         ;;
-    --rabbitmq | -r)
-        withrabbitmq=true
+        d) database="$OPTARG"
         ;;
-    --help | -h)
-        echo -e "${usage}"
-        exit 1
+        p) processing="$OPTARG"
         ;;
-    *)
+        *)
         echo -e "Invalid option $1 \n\n${usage}"
         exit 0
         ;;
     esac
-    shift
 done
 
 log "INFO" "checking tools..."
@@ -75,6 +71,9 @@ command -v helm >/dev/null 2>&1 || {
 }
 log "DONE" "tools already installed"
 
+
+
+
 ####### k3s #######
 log "INFO" "installing k3s..."
 curl -sfL https://get.k3s.io | sh -
@@ -89,77 +88,85 @@ export DEV_NS=dev
 kubectl apply -f namespaces.yml # create namespaces
 
 
-####### openfaas #######
-log "INFO" "deploying openfaas..."
-export TIMEOUT=2m
-helm repo add openfaas https://openfaas.github.io/faas-netes/
-helm install openfaas openfaas/openfaas \
-    --namespace openfaas \
-    --set functionNamespace=$DEV_NS \
-    --set generateBasicAuth=true \
-    --set gateway.upstreamTimeout=$TIMEOUT \
-    --set gateway.writeTimeout=$TIMEOUT \
-    --set gateway.readTimeout=$TIMEOUT \
-    --set faasnetes.writeTimeout=$TIMEOUT \
-    --set faasnetes.readTimeout=$TIMEOUT \
-    --set queueWorker.ackWait=$TIMEOUT
 
-log "INFO" "waiting for openfaas to start..."
-sleep 30
 
-kubectl rollout status -n openfaas deploy/gateway
-kubectl port-forward -n openfaas svc/gateway 8080:8080 &
-log "INFO" "please wait..."
-sleep 10
-PASSWORD=$(
-    sudo kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode
-    echo
-)
-echo -n $PASSWORD | faas-cli login --username admin --password-stdin
-log "DONE" "openfaas deployed successfully"
-
-log "INFO" "testing openfaas..."
-faas store deploy NodeInfo
-MAX_ATTEMPTS=10
-for ((i = 0; i < $MAX_ATTEMPTS; i++)); do
-    if [[ $(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8080/function/nodeinfo) -eq 200 ]]; then
-        log "DONE" "function is running successfully"
-        faas rm nodeinfo
-        break
-    else
-        log "WARN" "function is not running yet"
-        if [[ $i -eq 10 ]]; then
-            log "ERROR" "problem ocurred while deploying the function, exiting..."
-            break
-        fi
-    fi
-done
-
-# install kubernetes metrics-server
-# kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.5.0/components.yaml
-
-# disable alert-manager
-# kubectl scale -n openfaas deploy/alertmanager --replicas=0
-
-####### elasticsearch #######
-log "INFO" "deploying elasticsearch..."
-helm repo add elastic https://Helm.elastic.co
-helm install elasticsearch elastic/elasticsearch --set replicas=1 --namespace $DEV_NS
-log "INFO" "done"
-
-####### kafka/nats #######
-if [ "$withkafka" = true ]; then
-    log "INFO" "deploying kafka..."
-    helm repo add bitnami https://charts.bitnami.com/bitnami
-    helm install kafka bitnami/kafka --namespace $DEV_NS
-    log "INFO" "done"
-elif [[ "$withrabbitmq" = true ]]; then
-    log "INFO" "deploying rabbitMQ..."
-    helm repo add bitnami https://charts.bitnami.com/bitnami
-    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS
-else
+####### nats|kafka|rabbitmq #######
+if [ "$communication" = "nats" ]; then
     log "INFO" "deploying nats..."
     helm repo add nats https://nats-io.github.io/k8s/helm/charts/
     helm install nats nats/nats --set stan.replicas=1 --namespace $DEV_NS
     log "INFO" "done"
+
+elif [ "$communication" = "kafka" ]; then
+    log "INFO" "deploying kafka..."
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm install kafka bitnami/kafka --namespace $DEV_NS
+    log "INFO" "done"
+
+elif [[ "$communication" = "rabbitmq" ]]; then
+    log "INFO" "deploying rabbitMQ..."
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS
+fi
+
+
+
+
+####### elasticsearch #######
+if [ "$database" = true ]; then
+    log "INFO" "deploying elasticsearch..."
+    helm repo add elastic https://Helm.elastic.co
+    helm install elasticsearch elastic/elasticsearch --set replicas=1 --namespace $DEV_NS
+    log "INFO" "done"
+fi
+
+
+
+
+####### openfaas #######
+if [ "$processing" = true ]; then
+    log "INFO" "deploying openfaas..."
+    export TIMEOUT=2m
+    helm repo add openfaas https://openfaas.github.io/faas-netes/
+    helm install openfaas openfaas/openfaas \
+        --namespace openfaas \
+        --set functionNamespace=$DEV_NS \
+        --set generateBasicAuth=true \
+        --set gateway.upstreamTimeout=$TIMEOUT \
+        --set gateway.writeTimeout=$TIMEOUT \
+        --set gateway.readTimeout=$TIMEOUT \
+        --set faasnetes.writeTimeout=$TIMEOUT \
+        --set faasnetes.readTimeout=$TIMEOUT \
+        --set queueWorker.ackWait=$TIMEOUT
+
+    log "INFO" "waiting for openfaas to start..."
+    sleep 30
+
+    kubectl rollout status -n openfaas deploy/gateway
+    kubectl port-forward -n openfaas svc/gateway 8080:8080 &
+    log "INFO" "please wait..."
+    sleep 10
+    PASSWORD=$(
+        sudo kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode
+        echo
+    )
+    echo -n $PASSWORD | faas-cli login --username admin --password-stdin
+    log "DONE" "openfaas deployed successfully"
+
+    log "INFO" "testing openfaas..."
+    faas store deploy NodeInfo
+    MAX_ATTEMPTS=10
+    for ((i = 0; i < $MAX_ATTEMPTS; i++)); do
+        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8080/function/nodeinfo) -eq 200 ]]; then
+            log "DONE" "function is running successfully"
+            faas rm nodeinfo
+            break
+        else
+            log "WARN" "function is not running yet"
+            if [[ $i -eq 10 ]]; then
+                log "ERROR" "problem ocurred while deploying the function, exiting..."
+                break
+            fi
+        fi
+    done
 fi
