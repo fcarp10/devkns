@@ -30,17 +30,23 @@ usage='Usage:
 OPTIONS:
 \n -k --kafka
 \t deploys kafka instead of nats.
+\n -r --rabbitmq
+\t deploys rabbitmq instead of nats.
 \n -h --help
 \t Shows available options.
 \n\t Only one option is allowed.
 '
 
 withkafka=false
+withrabbitmq=false
 
 while [ "$1" != "" ]; do
     case $1 in
     --kafka | -k)
         withkafka=true
+        ;;
+    --rabbitmq | -r)
+        withrabbitmq=true
         ;;
     --help | -h)
         echo -e "${usage}"
@@ -81,6 +87,7 @@ log "INFO" "done"
 # create namespaces
 export DEV_NS=dev
 kubectl apply -f namespaces.yml # create namespaces
+
 
 ####### openfaas #######
 log "INFO" "deploying openfaas..."
@@ -128,6 +135,12 @@ for ((i = 0; i < $MAX_ATTEMPTS; i++)); do
     fi
 done
 
+# install kubernetes metrics-server
+# kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.5.0/components.yaml
+
+# disable alert-manager
+# kubectl scale -n openfaas deploy/alertmanager --replicas=0
+
 ####### elasticsearch #######
 log "INFO" "deploying elasticsearch..."
 helm repo add elastic https://Helm.elastic.co
@@ -140,6 +153,10 @@ if [ "$withkafka" = true ]; then
     helm repo add bitnami https://charts.bitnami.com/bitnami
     helm install kafka bitnami/kafka --namespace $DEV_NS
     log "INFO" "done"
+elif [[ "$withrabbitmq" = true ]]; then
+    log "INFO" "deploying rabbitMQ..."
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS
 else
     log "INFO" "deploying nats..."
     helm repo add nats https://nats-io.github.io/k8s/helm/charts/
