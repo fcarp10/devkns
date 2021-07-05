@@ -119,6 +119,11 @@ elif [[ "$communication" = "rabbitmq" ]]; then
     log "INFO" "deploying rabbitMQ..."
     helm repo add bitnami https://charts.bitnami.com/bitnami
     helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS --set replicas=1
+
+    blockUntilPodIsReady "app=rabbitmq" 240 "rabbitmq"  # Block until is running & ready
+    # kubectl port-forward -n $DEV_NS svc/rabbitmq 5672 &
+    # RABBITMQ_PASS=$(kubectl get secret -n $DEV_NS rabbitmq -o jsonpath="{.data.rabbitmq-password}" | base64 --decode)
+    log "INFO" "done"
 fi
 
 
@@ -140,8 +145,8 @@ fi
 ####### connectors #######
 if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
     log "INFO" "deploying logstash for rabbitMQ --> elasticsearch ..."
-    PIPELINE='{input { rabbitmq { host => "rabbitmq" durable => true } } }'
     helm install logstash elastic/logstash --namespace $DEV_NS -f logstash_conf.yml --set replicas=1
+
     blockUntilPodIsReady "app=logstash" 120 "logstash"  # Block until is running & ready
     log "INFO" "done"
 fi
