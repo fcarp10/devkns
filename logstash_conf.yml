@@ -1,0 +1,15 @@
+logstashPipeline:
+ logstash.conf: |
+  input {
+    rabbitmq {
+      host => "rabbitmq"
+      port => 5672
+      durable => true
+    }
+  }
+  output {
+    elasticsearch {
+        hosts => "elasticsearch-master"
+        data_stream => "true"
+    }
+  }

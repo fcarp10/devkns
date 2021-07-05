@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source utils.sh
+
 ###############################################################################
 # Author	:	Francisco Carpio
 # Github	:	https://github.com/fcarp10
@@ -34,20 +36,30 @@ OPTIONS:
 \t deploys Elasticsearch.
 \n -p ["true"|"false"]
 \t deploys OpenFaas.
+\n -g ["true"|"false"]
+\t deploys Kibana.
+\n -x ["true"|"false"]
+\t deploys rabbitmq --> elasticsearch connector.
 '
 
 # default values
 communication="nats"
 database=true
 processing=true
+dashboard=false
+rabbitMQ_elasticsearch_connector=false
 
-while getopts ":c:d:p:" opt; do
+while getopts ":c:d:p:g:x:" opt; do
     case $opt in
         c) communication="$OPTARG"
         ;;
         d) database="$OPTARG"
         ;;
         p) processing="$OPTARG"
+        ;;
+        g) dashboard="$OPTARG"
+        ;;
+        x) rabbitMQ_elasticsearch_connector="$OPTARG"
         ;;
         *)
         echo -e "Invalid option $1 \n\n${usage}"
@@ -94,7 +106,7 @@ kubectl apply -f namespaces.yml # create namespaces
 if [ "$communication" = "nats" ]; then
     log "INFO" "deploying nats..."
     helm repo add nats https://nats-io.github.io/k8s/helm/charts/
-    helm install nats nats/nats --set stan.replicas=1 --namespace $DEV_NS
+    helm install nats nats/nats --namespace $DEV_NS --set stan.replicas=1
     log "INFO" "done"
 
 elif [ "$communication" = "kafka" ]; then
@@ -106,9 +118,8 @@ elif [ "$communication" = "kafka" ]; then
 elif [[ "$communication" = "rabbitmq" ]]; then
     log "INFO" "deploying rabbitMQ..."
     helm repo add bitnami https://charts.bitnami.com/bitnami
-    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS
+    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS --set replicas=1
 fi
-
 
 
 
@@ -116,11 +127,38 @@ fi
 if [ "$database" = true ]; then
     log "INFO" "deploying elasticsearch..."
     helm repo add elastic https://Helm.elastic.co
-    helm install elasticsearch elastic/elasticsearch --set replicas=1 --namespace $DEV_NS
+    helm install elasticsearch elastic/elasticsearch --namespace $DEV_NS --set replicas=1
+
+    blockUntilPodIsReady "app=elasticsearch-master" 120 "elasticsearch-master"  # Block until is running & ready
+    ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
+    kubectl port-forward -n $DEV_NS $ES_POD 9200 &
     log "INFO" "done"
 fi
 
 
+
+####### connectors #######
+if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
+    log "INFO" "deploying logstash for rabbitMQ --> elasticsearch ..."
+    PIPELINE='{input { rabbitmq { host => "rabbitmq" durable => true } } }'
+    helm install logstash elastic/logstash --namespace $DEV_NS -f logstash_conf.yml --set replicas=1
+    blockUntilPodIsReady "app=logstash" 120 "logstash"  # Block until is running & ready
+    log "INFO" "done"
+fi
+
+
+
+####### kibana #######
+if [ "$dashboard" = true ]; then
+    log "INFO" "deploying kibana..."
+    helm repo add elastic https://Helm.elastic.co
+    helm install kibana elastic/kibana --namespace $DEV_NS --set replicas=1
+
+    blockUntilPodIsReady "app=kibana" 120 "kibana"  # Block until is running & ready
+    KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
+    kubectl port-forward -n $DEV_NS $KIBANA_POD 5601:5601 &
+    log "INFO" "done"
+fi
 
 
 ####### openfaas #######
@@ -139,11 +177,10 @@ if [ "$processing" = true ]; then
         --set faasnetes.readTimeout=$TIMEOUT \
         --set queueWorker.ackWait=$TIMEOUT
 
-    log "INFO" "waiting for openfaas to start..."
-    sleep 30
-
+    blockUntilPodIsReady "app=openfaas" 120 "openfaas"  # Block until is running & ready
     kubectl rollout status -n openfaas deploy/gateway
     kubectl port-forward -n openfaas svc/gateway 8080:8080 &
+
     log "INFO" "please wait..."
     sleep 10
     PASSWORD=$(

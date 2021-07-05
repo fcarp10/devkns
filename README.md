@@ -1,42 +1,52 @@
 # devkns
 
+Deployment script:
 
-Script for deployment of k3s, NATS|Kafka|RabbitMQ, Elasticsearch and OpenFaas.
-
-```
-------------------------------------------------
-                    functions
-------------------------------------------------
- nats/kafka/rabbitmq | elasticsearch | openfaas
-------------------------------------------------
-                       k3s                                              
-------------------------------------------------
-```
+- Communication: NATS, Kafka or RabbitMQ
+- Database: Elasticsearch
+- Dashboard: Kibana
+- Processing: OpenFaas
+- Container Orchestrator: k3s
 
 
-### Used Helm charts
+### Helm charts
 
-- [OpenFaas](https://openfaas.github.io/faas-netes/)
-- [Elasticsearch](https://Helm.elastic.co)
 - [NATS](https://nats-io.github.io/k8s/helm/charts/)
 - [Kafka (unofficial)](https://bitnami.com/stack/kafka/helm)
 - [RabbitMQ (unofficial)](https://bitnami.com/stack/rabbitmq/helm)
-
-
+- [OpenFaas](https://openfaas.github.io/faas-netes/)
+- [Elastic](https://Helm.elastic.co)
 
 
 ## [Option 1] Installation
 
-`curl` is required for the script to work. To deploy `nats` + `elasticsearch` + `openfaas`:
+`curl` is required for the script to work. 
+
+Default deployment install `nats` + `elasticsearch` + `openfaas`:
+
+```shell
+./deploy.sh
+```
+
+or:
 
 ```shell
 ./deploy.sh -c 'nats' -d 'true' -p 'true'
 ```
-
-To deploy `rabbitmq` + `elasticsearch` only:
+More options:
 
 ```shell
-./deploy.sh -c 'rabbitmq' -d 'true' -p 'false'
+OPTIONS:
+\n -c ["nats"|"kafka"|"rabbitmq"]
+\t deploys nats, kafka or rabbitmq.
+\n -d ["true"|"false"]
+\t deploys Elasticsearch.
+\n -p ["true"|"false"]
+\t deploys OpenFaas.
+\n -g ["true"|"false"]
+\t deploys Kibana.
+\n -x ["true"|"false"]
+\t deploys rabbitmq --> elasticsearch connector.
 ```
 
 To uninstall everything, run the following script:
@@ -55,11 +65,17 @@ To uninstall everything, run the following script:
 
 ### Deployment
 
+Modify Vagrantfile `deploy.sh` script accordingly:
+
+```ruby
+config.vm.provision "shell", path: "deploy.sh" 
+```
+
 Deploy and connect to the vm:
 ```shell
 vagrant up
+vagrant ssh
 ```
-Run `vagrant ssh` to connect to the VM.
 
 
 
