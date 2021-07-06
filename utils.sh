@@ -24,12 +24,11 @@ function podStatus() {
 function blockUntilPodIsReady() {
   local label="$1"
   local secs="$2"
-  local friendlyPodName="$3"
 
-  echo -n "Waiting for \"${friendlyPodName}\" to be ready: "
+  echo -n "Waiting for \"${label}\" to be ready: "
   until [[ $(podStatus "${label}") =~ "true" ]]; do
     if [ "$secs" -eq 0 ]; then
-      echo "\"${friendlyPodName}\" never stabilized."
+      echo "\"${label}\" never stabilized."
       exit 1
     fi
 

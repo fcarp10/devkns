@@ -3,6 +3,8 @@ logstashPipeline:
   input {
     rabbitmq {
       host => "rabbitmq.dev.svc"
+      user => "user"
+      password => "password"
       durable => true
     }
   }

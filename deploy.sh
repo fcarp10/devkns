@@ -118,11 +118,11 @@ elif [ "$communication" = "kafka" ]; then
 elif [[ "$communication" = "rabbitmq" ]]; then
     log "INFO" "deploying rabbitMQ..."
     helm repo add bitnami https://charts.bitnami.com/bitnami
-    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS --set replicas=1
+    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS --set replicas=1 --set auth.password=password
 
-    blockUntilPodIsReady "app=rabbitmq" 240 "rabbitmq"  # Block until is running & ready
-    # kubectl port-forward -n $DEV_NS svc/rabbitmq 5672 &
-    # RABBITMQ_PASS=$(kubectl get secret -n $DEV_NS rabbitmq -o jsonpath="{.data.rabbitmq-password}" | base64 --decode)
+    blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" 120  # Block until is running & ready
+    kubectl port-forward -n $DEV_NS svc/rabbitmq 5672 &
+    kubectl port-forward -n $DEV_NS svc/rabbitmq 15672:15672 &
     log "INFO" "done"
 fi
 
@@ -134,7 +134,7 @@ if [ "$database" = true ]; then
     helm repo add elastic https://Helm.elastic.co
     helm install elasticsearch elastic/elasticsearch --namespace $DEV_NS --set replicas=1
 
-    blockUntilPodIsReady "app=elasticsearch-master" 120 "elasticsearch-master"  # Block until is running & ready
+    blockUntilPodIsReady "app=elasticsearch-master" 120  # Block until is running & ready
     ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward -n $DEV_NS $ES_POD 9200 &
     log "INFO" "done"
@@ -147,7 +147,7 @@ if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
     log "INFO" "deploying logstash for rabbitMQ --> elasticsearch ..."
     helm install logstash elastic/logstash --namespace $DEV_NS -f logstash_conf.yml --set replicas=1
 
-    blockUntilPodIsReady "app=logstash" 120 "logstash"  # Block until is running & ready
+    blockUntilPodIsReady "app=logstash-logstash" 240  # Block until is running & ready
     log "INFO" "done"
 fi
 
@@ -159,7 +159,7 @@ if [ "$dashboard" = true ]; then
     helm repo add elastic https://Helm.elastic.co
     helm install kibana elastic/kibana --namespace $DEV_NS --set replicas=1
 
-    blockUntilPodIsReady "app=kibana" 120 "kibana"  # Block until is running & ready
+    blockUntilPodIsReady "app=kibana" 120  # Block until is running & ready
     KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward -n $DEV_NS $KIBANA_POD 5601:5601 &
     log "INFO" "done"
