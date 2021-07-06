@@ -76,33 +76,3 @@ Deploy and connect to the vm:
 vagrant up
 vagrant ssh
 ```
-
-
-
-
-
-## Test OpenFaas
-
-Apply k3s configuration:
-
-```shell
-mkdir ~/.kube
-sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
-kubectl rollout status -n openfaas deploy/gateway
-kubectl port-forward -n openfaas svc/gateway 8080:8080 &
-```
-
-Log in with faas cli:
-```shell
-PASSWORD=$(
-    sudo kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode
-    echo
-)
-echo -n $PASSWORD | faas-cli login --username admin --password-stdin
-```
-
-Deploy and test a function:
-```shell
-faas deploy --image fcarp10/figlet --name figlet --fprocess "figlet"
-curl http://127.0.0.1:8080/function/figlet -d "Hello World!"
-```

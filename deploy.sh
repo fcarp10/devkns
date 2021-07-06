@@ -119,10 +119,6 @@ elif [[ "$communication" = "rabbitmq" ]]; then
     log "INFO" "deploying rabbitMQ..."
     helm repo add bitnami https://charts.bitnami.com/bitnami
     helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS --set replicas=1 --set auth.password=password
-
-    blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" 120  # Block until is running & ready
-    kubectl port-forward -n $DEV_NS svc/rabbitmq 5672 &
-    kubectl port-forward -n $DEV_NS svc/rabbitmq 15672:15672 &
     log "INFO" "done"
 fi
 
@@ -133,10 +129,6 @@ if [ "$database" = true ]; then
     log "INFO" "deploying elasticsearch..."
     helm repo add elastic https://Helm.elastic.co
     helm install elasticsearch elastic/elasticsearch --namespace $DEV_NS --set replicas=1
-
-    blockUntilPodIsReady "app=elasticsearch-master" 120  # Block until is running & ready
-    ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $ES_POD 9200 &
     log "INFO" "done"
 fi
 
@@ -145,9 +137,7 @@ fi
 ####### connectors #######
 if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
     log "INFO" "deploying logstash for rabbitMQ --> elasticsearch ..."
-    helm install logstash elastic/logstash --namespace $DEV_NS -f logstash_conf.yml --set replicas=1
-
-    blockUntilPodIsReady "app=logstash-logstash" 240  # Block until is running & ready
+    helm install logstash elastic/logstash --namespace $DEV_NS -f logstash_values.yml --set replicas=1
     log "INFO" "done"
 fi
 
@@ -158,10 +148,6 @@ if [ "$dashboard" = true ]; then
     log "INFO" "deploying kibana..."
     helm repo add elastic https://Helm.elastic.co
     helm install kibana elastic/kibana --namespace $DEV_NS --set replicas=1
-
-    blockUntilPodIsReady "app=kibana" 120  # Block until is running & ready
-    KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $KIBANA_POD 5601:5601 &
     log "INFO" "done"
 fi
 
@@ -181,13 +167,64 @@ if [ "$processing" = true ]; then
         --set faasnetes.writeTimeout=$TIMEOUT \
         --set faasnetes.readTimeout=$TIMEOUT \
         --set queueWorker.ackWait=$TIMEOUT
+    log "INFO" "done"
+fi
 
-    blockUntilPodIsReady "app=openfaas" 120 "openfaas"  # Block until is running & ready
+
+
+
+################################
+##### wait for deployment ######
+################################
+TIMER=240
+
+####### nats|kafka|rabbitmq #######
+if [ "$communication" = "nats" ]; then
+    ## TBD
+    log "INFO" "done"
+
+elif [ "$communication" = "kafka" ]; then
+    ## TBD
+    log "INFO" "done"
+
+elif [[ "$communication" = "rabbitmq" ]]; then
+    blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER # Block until is running & ready
+    kubectl port-forward -n $DEV_NS svc/rabbitmq 5672 &
+    kubectl port-forward -n $DEV_NS svc/rabbitmq 15672:15672 &
+    log "INFO" "done"
+fi
+
+####### elasticsearch #######
+if [ "$database" = true ]; then
+    blockUntilPodIsReady "app=elasticsearch-master" $TIMER  # Block until is running & ready
+    ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
+    kubectl port-forward -n $DEV_NS $ES_POD 9200 &
+    log "INFO" "done"
+fi
+
+
+####### connectors #######
+if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
+    blockUntilPodIsReady "app=logstash-logstash" $TIMER  # Block until is running & ready
+    log "INFO" "done"
+fi
+
+####### kibana #######
+if [ "$dashboard" = true ]; then
+    blockUntilPodIsReady "app=kibana" $TIMER  # Block until is running & ready
+    KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
+    kubectl port-forward -n $DEV_NS $KIBANA_POD 5601:5601 &
+    log "INFO" "done"
+fi
+
+####### openfaas #######
+if [ "$processing" = true ]; then
+    blockUntilPodIsReady "app=openfaas" $TIMER "openfaas"  # Block until is running & ready
     kubectl rollout status -n openfaas deploy/gateway
     kubectl port-forward -n openfaas svc/gateway 8080:8080 &
 
     log "INFO" "please wait..."
-    sleep 10
+    sleep 5
     PASSWORD=$(
         sudo kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode
         echo

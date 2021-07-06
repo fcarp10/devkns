@@ -1,3 +1,8 @@
+logstashConfig:
+ logstash.yml: |
+   xpack.monitoring.enabled: false
+   http.host: 0.0.0.0
+
 logstashPipeline:
  logstash.conf: |
   input {
@@ -5,6 +10,7 @@ logstashPipeline:
       host => "rabbitmq.dev.svc"
       user => "user"
       password => "password"
+      queue => "topic_kns"
       durable => true
     }
   }
