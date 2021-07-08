@@ -34,10 +34,15 @@ Vagrant.configure("2") do |config|
     # config.vm.provision "shell", inline: <<-SHELL
     # echo "hello-world"
     # SHELL
-    config.vm.provision "file", source: "namespaces.yml", destination: "namespaces.yml"
-    config.vm.provision "file", source: "logstash_values.yml", destination: "logstash_values.yml"
-    config.vm.provision "file", source: "utils.sh", destination: "utils.sh"
-    config.vm.provision "file", source: "deploy.sh", destination: "deploy.sh"
-    config.vm.provision "shell", inline: "./deploy.sh -c 'rabbitmq' -d 'true' -p 'false' -g 'true' -x 'true'"
+
+    files = ["namespaces.yml", "logstash_values.yml", "utils.sh", "deploy.sh"]
+    files.each do |f|
+      config.vm.provision "file", source: f, destination: f
+    end
+
+    config.vm.provision "shell" do |s|
+      s.inline = "apt-get install -y curl jq"
+      s.inline = "./deploy.sh -c 'rabbitmq' -d 'true' -p 'false' -g 'true' -x 'true'"
+    end
   end
   

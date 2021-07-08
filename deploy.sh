@@ -73,6 +73,10 @@ command -v curl >/dev/null 2>&1 || {
     log "ERROR" "curl not found, aborting."
     exit 1
 }
+command -v jq >/dev/null 2>&1 || {
+    log "ERROR" "jq not found, aborting."
+    exit 1
+}
 command -v faas >/dev/null 2>&1 || {
     log "WARN" "faas cli not found, installing..."
     curl -SLsf https://cli.openfaas.com | sudo sh
