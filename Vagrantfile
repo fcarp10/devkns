@@ -6,6 +6,7 @@ ports=[8080, 5672, 15672, 9200, 5601] # [openfaas, rabbitmq, rabbitmq, elasticse
 
 $script = <<-'SCRIPT'
 apt-get update && apt-get install curl jq -y
+mkdir ~/.kube
 ./deploy.sh -c 'rabbitmq' -d 'true' -p 'false' -g 'true' -x 'true'
 SCRIPT
 
@@ -18,10 +19,13 @@ Vagrant.configure("2") do |config|
     # within the machine from a port on the host machine. In the example below,
     # accessing "localhost:8080" will access port 80 on the guest machine.
     # NOTE: This will enable public access to the opened port
-    ports.each do |port|
-      config.vm.network :forwarded_port, guest: port, host: port
-    end
-  
+
+    # ports.each do |port|
+    #   config.vm.network :forwarded_port, guest: port, host: port
+    # end
+
+    config.vm.network "public_network"
+
     # Provider-specific configuration so you can fine-tune various
     # backing providers for Vagrant. These expose provider-specific options.
     # Example for VirtualBox:

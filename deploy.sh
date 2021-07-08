@@ -225,7 +225,7 @@ if [ "$processing" = true ]; then
         curl -SLsf https://cli.openfaas.com | sudo sh
     }
 
-    blockUntilPodIsReady "app=openfaas" $TIMER "openfaas"  # Block until is running & ready
+    blockUntilPodIsReady "app=gateway" $TIMER  # Block until is running & ready
     kubectl rollout status -n openfaas deploy/gateway
     kubectl port-forward -n openfaas svc/gateway 8080:8080 &
 
