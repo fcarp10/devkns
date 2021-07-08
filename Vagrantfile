@@ -4,6 +4,11 @@
 # ports to forward
 ports=[8080, 5672, 15672, 9200, 5601] # [openfaas, rabbitmq, rabbitmq, elasticsearch, kibana]
 
+$script = <<-'SCRIPT'
+apt-get update && apt-get install curl jq -y
+./deploy.sh -c 'rabbitmq' -d 'true' -p 'false' -g 'true' -x 'true'
+SCRIPT
+
 Vagrant.configure("2") do |config|
   
     # boxes at https://vagrantcloud.com/search.
@@ -40,9 +45,7 @@ Vagrant.configure("2") do |config|
       config.vm.provision "file", source: f, destination: f
     end
 
-    config.vm.provision "shell" do |s|
-      s.inline = "apt-get install -y curl jq"
-      s.inline = "./deploy.sh -c 'rabbitmq' -d 'true' -p 'false' -g 'true' -x 'true'"
-    end
+    config.vm.provision "shell", inline: $script
+
   end
   
