@@ -5,8 +5,7 @@
 ports=[8080, 5672, 15672, 9200, 5601] # [openfaas, rabbitmq, rabbitmq, elasticsearch, kibana]
 
 $script = <<-'SCRIPT'
-apt-get update && apt-get install curl jq -y
-mkdir ~/.kube
+sudo apt-get update && sudo apt-get install curl jq -y
 ./deploy.sh -c 'rabbitmq' -d 'true' -p 'false' -g 'true' -x 'true'
 SCRIPT
 
@@ -14,17 +13,17 @@ Vagrant.configure("2") do |config|
   
     # boxes at https://vagrantcloud.com/search.
     config.vm.box = "ubuntu/focal64"
-  
+
     # Create a forwarded port mapping which allows access to a specific port
     # within the machine from a port on the host machine. In the example below,
     # accessing "localhost:8080" will access port 80 on the guest machine.
     # NOTE: This will enable public access to the opened port
 
-    # ports.each do |port|
-    #   config.vm.network :forwarded_port, guest: port, host: port
-    # end
+    ports.each do |port|
+       config.vm.network :forwarded_port, guest: port, host: port
+    end
 
-    config.vm.network "public_network"
+    # config.vm.network "public_network"
 
     # Provider-specific configuration so you can fine-tune various
     # backing providers for Vagrant. These expose provider-specific options.
@@ -49,7 +48,7 @@ Vagrant.configure("2") do |config|
       config.vm.provision "file", source: f, destination: f
     end
 
-    config.vm.provision "shell", inline: $script
+    config.vm.provision "shell", inline: $script, privileged: false
 
   end
   

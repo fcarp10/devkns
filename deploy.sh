@@ -51,17 +51,22 @@ rabbitMQ_elasticsearch_connector=false
 
 while getopts ":c:d:p:g:x:" opt; do
     case $opt in
-        c) communication="$OPTARG"
+    c)
+        communication="$OPTARG"
         ;;
-        d) database="$OPTARG"
+    d)
+        database="$OPTARG"
         ;;
-        p) processing="$OPTARG"
+    p)
+        processing="$OPTARG"
         ;;
-        g) dashboard="$OPTARG"
+    g)
+        dashboard="$OPTARG"
         ;;
-        x) rabbitMQ_elasticsearch_connector="$OPTARG"
+    x)
+        rabbitMQ_elasticsearch_connector="$OPTARG"
         ;;
-        *)
+    *)
         echo -e "Invalid option $1 \n\n${usage}"
         exit 0
         ;;
@@ -83,9 +88,6 @@ command -v helm >/dev/null 2>&1 || {
 }
 log "DONE" "tools already installed"
 
-
-
-
 ####### k3s #######
 log "INFO" "installing k3s..."
 curl -sfL https://get.k3s.io | sh -
@@ -98,9 +100,6 @@ log "INFO" "done"
 # create namespaces
 export DEV_NS=dev
 kubectl apply -f namespaces.yml # create namespaces
-
-
-
 
 ####### nats|kafka|rabbitmq #######
 if [ "$communication" = "nats" ]; then
@@ -122,8 +121,6 @@ elif [[ "$communication" = "rabbitmq" ]]; then
     log "INFO" "done"
 fi
 
-
-
 ####### elasticsearch #######
 if [ "$database" = true ]; then
     log "INFO" "deploying elasticsearch..."
@@ -132,16 +129,12 @@ if [ "$database" = true ]; then
     log "INFO" "done"
 fi
 
-
-
 ####### connectors #######
 if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
     log "INFO" "deploying logstash for rabbitMQ --> elasticsearch ..."
     helm install logstash elastic/logstash --namespace $DEV_NS -f logstash_values.yml --set replicas=1
     log "INFO" "done"
 fi
-
-
 
 ####### kibana #######
 if [ "$dashboard" = true ]; then
@@ -150,7 +143,6 @@ if [ "$dashboard" = true ]; then
     helm install kibana elastic/kibana --namespace $DEV_NS --set replicas=1
     log "INFO" "done"
 fi
-
 
 ####### openfaas #######
 if [ "$processing" = true ]; then
@@ -170,9 +162,6 @@ if [ "$processing" = true ]; then
     log "INFO" "done"
 fi
 
-
-
-
 ################################
 ##### wait for deployment ######
 ################################
@@ -189,31 +178,30 @@ elif [ "$communication" = "kafka" ]; then
 
 elif [[ "$communication" = "rabbitmq" ]]; then
     blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER # Block until is running & ready
-    kubectl port-forward -n $DEV_NS svc/rabbitmq 5672 &
-    kubectl port-forward -n $DEV_NS svc/rabbitmq 15672:15672 &
+    kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 5672 &
+    kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 15672:15672 &
     log "INFO" "done"
 fi
 
 ####### elasticsearch #######
 if [ "$database" = true ]; then
-    blockUntilPodIsReady "app=elasticsearch-master" $TIMER  # Block until is running & ready
+    blockUntilPodIsReady "app=elasticsearch-master" $TIMER # Block until is running & ready
     ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $ES_POD 9200 &
+    kubectl port-forward -n $DEV_NS $ES_POD --address 0.0.0.0 9200 &
     log "INFO" "done"
 fi
 
-
 ####### connectors #######
 if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
-    blockUntilPodIsReady "app=logstash-logstash" $TIMER  # Block until is running & ready
+    blockUntilPodIsReady "app=logstash-logstash" $TIMER # Block until is running & ready
     log "INFO" "done"
 fi
 
 ####### kibana #######
 if [ "$dashboard" = true ]; then
-    blockUntilPodIsReady "app=kibana" $TIMER  # Block until is running & ready
+    blockUntilPodIsReady "app=kibana" $TIMER # Block until is running & ready
     KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $KIBANA_POD 5601:5601 &
+    kubectl port-forward -n $DEV_NS $KIBANA_POD --address 0.0.0.0 5601:5601 &
     log "INFO" "done"
 fi
 
@@ -225,9 +213,9 @@ if [ "$processing" = true ]; then
         curl -SLsf https://cli.openfaas.com | sudo sh
     }
 
-    blockUntilPodIsReady "app=gateway" $TIMER  # Block until is running & ready
+    blockUntilPodIsReady "app=gateway" $TIMER # Block until is running & ready
     kubectl rollout status -n openfaas deploy/gateway
-    kubectl port-forward -n openfaas svc/gateway 8080:8080 &
+    kubectl port-forward -n openfaas svc/gateway --address 0.0.0.0 8080:8080 &
 
     log "INFO" "please wait..."
     sleep 5
