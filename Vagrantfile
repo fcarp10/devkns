@@ -1,6 +1,9 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+# ports to forward
+ports=[8080, 5672, 15672, 9200, 5601] # [openfaas, rabbitmq, rabbitmq, elasticsearch, kibana]
+
 Vagrant.configure("2") do |config|
   
     # boxes at https://vagrantcloud.com/search.
@@ -10,7 +13,9 @@ Vagrant.configure("2") do |config|
     # within the machine from a port on the host machine. In the example below,
     # accessing "localhost:8080" will access port 80 on the guest machine.
     # NOTE: This will enable public access to the opened port
-    config.vm.network "forwarded_port", guest: 80, host: 8080
+    ports.each do |port|
+      config.vm.network :forwarded_port, guest: port, host: port
+    end
   
     # Provider-specific configuration so you can fine-tune various
     # backing providers for Vagrant. These expose provider-specific options.
@@ -30,6 +35,9 @@ Vagrant.configure("2") do |config|
     # echo "hello-world"
     # SHELL
     config.vm.provision "file", source: "namespaces.yml", destination: "namespaces.yml"
-    config.vm.provision "shell", path: "deploy.sh" 
+    config.vm.provision "file", source: "logstash_values.yml", destination: "logstash_values.yml"
+    config.vm.provision "file", source: "utils.sh", destination: "utils.sh"
+    config.vm.provision "file", source: "deploy.sh", destination: "deploy.sh"
+    config.vm.provision "shell", inline: "./deploy.sh -c 'rabbitmq' -d 'true' -p 'false' -g 'true' -x 'true'"
   end
   
