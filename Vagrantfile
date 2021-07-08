@@ -28,8 +28,8 @@ Vagrant.configure("2") do |config|
     config.vm.provider "virtualbox" do |vb|
       # Display the VirtualBox GUI when booting the machine
       # vb.gui = true
-      vb.memory = "4196"
-      vb.cpus = 2
+      vb.memory = "8192"
+      vb.cpus = 4
     end
     # config.disksize.size = '15GB'
   

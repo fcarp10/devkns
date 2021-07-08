@@ -77,10 +77,6 @@ command -v jq >/dev/null 2>&1 || {
     log "ERROR" "jq not found, aborting."
     exit 1
 }
-command -v faas >/dev/null 2>&1 || {
-    log "WARN" "faas cli not found, installing..."
-    curl -SLsf https://cli.openfaas.com | sudo sh
-}
 command -v helm >/dev/null 2>&1 || {
     log "WARN" "helm not found, installing..."
     curl -sSLf https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
@@ -180,7 +176,7 @@ fi
 ################################
 ##### wait for deployment ######
 ################################
-TIMER=240
+TIMER=480
 
 ####### nats|kafka|rabbitmq #######
 if [ "$communication" = "nats" ]; then
@@ -223,6 +219,12 @@ fi
 
 ####### openfaas #######
 if [ "$processing" = true ]; then
+
+    command -v faas >/dev/null 2>&1 || {
+        log "WARN" "faas cli not found, installing..."
+        curl -SLsf https://cli.openfaas.com | sudo sh
+    }
+
     blockUntilPodIsReady "app=openfaas" $TIMER "openfaas"  # Block until is running & ready
     kubectl rollout status -n openfaas deploy/gateway
     kubectl port-forward -n openfaas svc/gateway 8080:8080 &
