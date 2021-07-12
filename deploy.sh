@@ -30,24 +30,24 @@ function log() {
 usage='Usage:
 '$0' [OPTION]
 OPTIONS:
-\n -c ["nats"|"kafka"|"rabbitmq"]
-\t deploys nats, kafka or rabbitmq.
-\n -d ["true"|"false"]
-\t deploys Elasticsearch.
-\n -p ["true"|"false"]
-\t deploys OpenFaas.
-\n -g ["true"|"false"]
-\t deploys Kibana.
-\n -x ["true"|"false"]
-\t deploys rabbitmq --> elasticsearch connector.
+\n -c {"nats"|"kafka"|"rabbitmq"|"none"}
+\t communication tool to deploy.
+\n -d {"elasticsearch"|"influxdb"|"none"}
+\t database engine to deploy.
+\n -p ["openfaas"|"none"]
+\t serverless platform to deploy.
+\n -g ["kibana"|"none"]
+\t GUI/dashboard to deploy.
+\n -x ["rab_es_connector"|"none"]
+\t connectors to deploy.
 '
 
 # default values
-communication="nats"
-database=true
-processing=true
-dashboard=false
-rabbitMQ_elasticsearch_connector=false
+communication="none"
+database="none"
+processing="none"
+dashboard="none"
+connector="none"
 
 while getopts ":c:d:p:g:x:" opt; do
     case $opt in
@@ -64,7 +64,7 @@ while getopts ":c:d:p:g:x:" opt; do
         dashboard="$OPTARG"
         ;;
     x)
-        rabbitMQ_elasticsearch_connector="$OPTARG"
+        connector="$OPTARG"
         ;;
     *)
         echo -e "Invalid option $1 \n\n${usage}"
@@ -101,7 +101,11 @@ log "INFO" "done"
 export DEV_NS=dev
 kubectl apply -f namespaces.yml # create namespaces
 
-####### nats|kafka|rabbitmq #######
+
+
+
+
+####### communication #######
 if [ "$communication" = "nats" ]; then
     log "INFO" "deploying nats..."
     helm repo add nats https://nats-io.github.io/k8s/helm/charts/
@@ -121,31 +125,22 @@ elif [[ "$communication" = "rabbitmq" ]]; then
     log "INFO" "done"
 fi
 
-####### elasticsearch #######
-if [ "$database" = true ]; then
+####### database #######
+if [ "$database" = "elasticsearch" ]; then
     log "INFO" "deploying elasticsearch..."
     helm repo add elastic https://Helm.elastic.co
     helm install elasticsearch elastic/elasticsearch --namespace $DEV_NS --set replicas=1
     log "INFO" "done"
-fi
 
-####### connectors #######
-if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
-    log "INFO" "deploying logstash for rabbitMQ --> elasticsearch ..."
-    helm install logstash elastic/logstash --namespace $DEV_NS -f logstash_values.yml --set replicas=1
+elif [ "$database" = "influxdb" ]; then
+    log "INFO" "deploying influxdb..."
+    helm repo add influxdata https://influxdata.github.io/helm-charts
+    helm install influxdb influxdata/influxdb --namespace $DEV_NS
     log "INFO" "done"
 fi
 
-####### kibana #######
-if [ "$dashboard" = true ]; then
-    log "INFO" "deploying kibana..."
-    helm repo add elastic https://Helm.elastic.co
-    helm install kibana elastic/kibana --namespace $DEV_NS --set replicas=1
-    log "INFO" "done"
-fi
-
-####### openfaas #######
-if [ "$processing" = true ]; then
+####### processing #######
+if [ "$processing" = "openfaas" ]; then
     log "INFO" "deploying openfaas..."
     export TIMEOUT=2m
     helm repo add openfaas https://openfaas.github.io/faas-netes/
@@ -162,12 +157,31 @@ if [ "$processing" = true ]; then
     log "INFO" "done"
 fi
 
+####### dashboard #######
+if [ "$dashboard" = "kibana" ]; then
+    log "INFO" "deploying kibana..."
+    helm repo add elastic https://Helm.elastic.co
+    helm install kibana elastic/kibana --namespace $DEV_NS --set replicas=1
+    log "INFO" "done"
+fi
+
+####### connector #######
+if [ "$connector" = "rab_es_connector" ]; then
+    log "INFO" "deploying logstash for rabbitMQ --> elasticsearch..."
+    helm install logstash elastic/logstash --namespace $DEV_NS -f rab_es_connector.yml --set replicas=1
+    log "INFO" "done"
+fi
+
+
+
+
+
 ################################
 ##### wait for deployment ######
 ################################
 TIMER=480
 
-####### nats|kafka|rabbitmq #######
+####### communication #######
 if [ "$communication" = "nats" ]; then
     ## TBD
     log "INFO" "done"
@@ -183,30 +197,22 @@ elif [[ "$communication" = "rabbitmq" ]]; then
     log "INFO" "done"
 fi
 
-####### elasticsearch #######
-if [ "$database" = true ]; then
+
+####### database #######
+if [ "$database" = "elasticsearch" ]; then
     blockUntilPodIsReady "app=elasticsearch-master" $TIMER # Block until is running & ready
     ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward -n $DEV_NS $ES_POD --address 0.0.0.0 9200 &
     log "INFO" "done"
-fi
 
-####### connectors #######
-if [ "$rabbitMQ_elasticsearch_connector" = true ]; then
-    blockUntilPodIsReady "app=logstash-logstash" $TIMER # Block until is running & ready
+elif [ "$database" = "influxdb" ]; then
+    ## TBD
     log "INFO" "done"
 fi
 
-####### kibana #######
-if [ "$dashboard" = true ]; then
-    blockUntilPodIsReady "app=kibana" $TIMER # Block until is running & ready
-    KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $KIBANA_POD --address 0.0.0.0 5601:5601 &
-    log "INFO" "done"
-fi
 
-####### openfaas #######
-if [ "$processing" = true ]; then
+####### processing #######
+if [ "$processing" = "openfaas" ]; then
 
     command -v faas >/dev/null 2>&1 || {
         log "WARN" "faas cli not found, installing..."
@@ -243,3 +249,21 @@ if [ "$processing" = true ]; then
         fi
     done
 fi
+
+####### dashboard #######
+if [ "$dashboard" = "kibana" ]; then
+    blockUntilPodIsReady "app=kibana" $TIMER # Block until is running & ready
+    KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
+    kubectl port-forward -n $DEV_NS $KIBANA_POD --address 0.0.0.0 5601:5601 &
+    log "INFO" "done"
+fi
+
+
+####### connector #######
+if [ "$connector" = "rab_es_connector" ]; then
+    blockUntilPodIsReady "app=logstash-logstash" $TIMER # Block until is running & ready
+    log "INFO" "done"
+fi
+
+
+

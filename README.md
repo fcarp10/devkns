@@ -1,52 +1,32 @@
 # devkns
 
-Deployment script:
+Script for automated deployment on k3s of:
 
 - Communication: NATS, Kafka or RabbitMQ
-- Database: Elasticsearch
-- Dashboard: Kibana
+- Database: Elasticsearch or InfluxDB
 - Processing: OpenFaas
-- Container Orchestrator: k3s
+- Dashboard: Kibana
 
-
-### Helm charts
-
-- [NATS](https://nats-io.github.io/k8s/helm/charts/)
-- [Kafka (unofficial)](https://bitnami.com/stack/kafka/helm)
-- [RabbitMQ (unofficial)](https://bitnami.com/stack/rabbitmq/helm)
-- [OpenFaas](https://openfaas.github.io/faas-netes/)
-- [Elastic](https://Helm.elastic.co)
 
 
 ## [Option 1] Installation
 
-`curl` is required for the script to work. 
-
-Default deployment install `nats` + `elasticsearch` + `openfaas`:
+`curl` and `jq` are required for the script to work. 
 
 ```shell
-./deploy.sh
-```
+./deploy.sh -h
 
-or:
-
-```shell
-./deploy.sh -c 'nats' -d 'true' -p 'true'
-```
-More options:
-
-```shell
 OPTIONS:
-\n -c ["nats"|"kafka"|"rabbitmq"]
-\t deploys nats, kafka or rabbitmq.
-\n -d ["true"|"false"]
-\t deploys Elasticsearch.
-\n -p ["true"|"false"]
-\t deploys OpenFaas.
-\n -g ["true"|"false"]
-\t deploys Kibana.
-\n -x ["true"|"false"]
-\t deploys rabbitmq --> elasticsearch connector.
+\n -c {"nats"|"kafka"|"rabbitmq"|"none"}
+\t communication tool to deploy.
+\n -d {"elasticsearch"|"influxdb"|"none"}
+\t database engine to deploy.
+\n -p ["openfaas"|"none"]
+\t serverless platform to deploy.
+\n -g ["kibana"|"none"]
+\t GUI/dashboard to deploy.
+\n -x ["rabbitmq_elasticsearch"|"none"]
+\t connectors to deploy.
 ```
 
 To uninstall everything, run the following script:
