@@ -34,11 +34,11 @@ OPTIONS:
 \t communication tool to deploy.
 \n -d {"elasticsearch"|"influxdb"|"none"}
 \t database engine to deploy.
-\n -p ["openfaas"|"none"]
+\n -p {"openfaas"|"none"}
 \t serverless platform to deploy.
-\n -g ["kibana"|"none"]
+\n -g {"kibana"|"none"}
 \t GUI/dashboard to deploy.
-\n -x ["rab_es_connector"|"none"]
+\n -x {"rabbitmq_elasticsearch"|"none"}
 \t connectors to deploy.
 '
 
@@ -91,10 +91,10 @@ log "DONE" "tools already installed"
 ####### k3s #######
 log "INFO" "installing k3s..."
 curl -sfL https://get.k3s.io | sh -
-mkdir ~/.kube
-sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
 log "INFO" "waiting for k3s to start..."
 sleep 30
+mkdir ~/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
 log "INFO" "done"
 
 # create namespaces
@@ -134,8 +134,10 @@ if [ "$database" = "elasticsearch" ]; then
 
 elif [ "$database" = "influxdb" ]; then
     log "INFO" "deploying influxdb..."
-    helm repo add influxdata https://influxdata.github.io/helm-charts
-    helm install influxdb influxdata/influxdb --namespace $DEV_NS
+    helm repo add influxdata https://helm.influxdata.com/
+    helm install influxdb influxdata/influxdb2 --namespace $DEV_NS \
+        --set adminUser.password=pass123456 \
+        --set adminUser.token=token123456
     log "INFO" "done"
 fi
 
@@ -168,11 +170,9 @@ fi
 ####### connector #######
 if [ "$connector" = "rab_es_connector" ]; then
     log "INFO" "deploying logstash for rabbitMQ --> elasticsearch..."
-    helm install logstash elastic/logstash --namespace $DEV_NS -f rab_es_connector.yml --set replicas=1
+    helm install logstash elastic/logstash --namespace $DEV_NS -f values/rab_es_connector.yml --set replicas=1
     log "INFO" "done"
 fi
-
-
 
 
 
@@ -191,7 +191,7 @@ elif [ "$communication" = "kafka" ]; then
     log "INFO" "done"
 
 elif [[ "$communication" = "rabbitmq" ]]; then
-    blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER # Block until is running & ready
+    blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER 
     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 5672 &
     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 15672:15672 &
     log "INFO" "done"
@@ -200,13 +200,16 @@ fi
 
 ####### database #######
 if [ "$database" = "elasticsearch" ]; then
-    blockUntilPodIsReady "app=elasticsearch-master" $TIMER # Block until is running & ready
+    blockUntilPodIsReady "app=elasticsearch-master" $TIMER 
     ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward -n $DEV_NS $ES_POD --address 0.0.0.0 9200 &
     log "INFO" "done"
 
 elif [ "$database" = "influxdb" ]; then
-    ## TBD
+    blockUntilPodIsReady "app.kubernetes.io/name=influxdb2" $TIMER
+    # PASSWORD=$(kubectl get secret -n $DEV_NS influxdb-influxdb2-auth -o jsonpath="{.data['admin-password']}" | base64 --decode)
+    INF_POD=$(kubectl get pods -n $DEV_NS -l "app.kubernetes.io/name=influxdb2" -o jsonpath="{.items[0].metadata.name}")
+    kubectl port-forward -n $DEV_NS $INF_POD --address 0.0.0.0 8086:8086 &
     log "INFO" "done"
 fi
 
@@ -219,16 +222,13 @@ if [ "$processing" = "openfaas" ]; then
         curl -SLsf https://cli.openfaas.com | sudo sh
     }
 
-    blockUntilPodIsReady "app=gateway" $TIMER # Block until is running & ready
+    blockUntilPodIsReady "app=gateway" $TIMER 
     kubectl rollout status -n openfaas deploy/gateway
     kubectl port-forward -n openfaas svc/gateway --address 0.0.0.0 8080:8080 &
 
     log "INFO" "please wait..."
     sleep 5
-    PASSWORD=$(
-        sudo kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode
-        echo
-    )
+    PASSWORD=$(kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode)
     echo -n $PASSWORD | faas-cli login --username admin --password-stdin
     log "DONE" "openfaas deployed successfully"
 
@@ -252,7 +252,7 @@ fi
 
 ####### dashboard #######
 if [ "$dashboard" = "kibana" ]; then
-    blockUntilPodIsReady "app=kibana" $TIMER # Block until is running & ready
+    blockUntilPodIsReady "app=kibana" $TIMER 
     KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward -n $DEV_NS $KIBANA_POD --address 0.0.0.0 5601:5601 &
     log "INFO" "done"
@@ -261,7 +261,7 @@ fi
 
 ####### connector #######
 if [ "$connector" = "rab_es_connector" ]; then
-    blockUntilPodIsReady "app=logstash-logstash" $TIMER # Block until is running & ready
+    blockUntilPodIsReady "app=logstash-logstash" $TIMER 
     log "INFO" "done"
 fi
 

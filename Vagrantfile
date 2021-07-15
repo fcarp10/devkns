@@ -2,11 +2,12 @@
 # vi: set ft=ruby :
 
 # ports to forward
-ports=[8080, 5672, 15672, 9200, 5601] # [openfaas, rabbitmq, rabbitmq, elasticsearch, kibana]
+ports=[8080, 5672, 15672, 9200, 5601, 8086] # [openfaas, rabbitmq, rabbitmq, elasticsearch, kibana, influxdb]
 
 $script = <<-'SCRIPT'
 sudo apt-get update && sudo apt-get install curl jq -y
-./deploy.sh -c 'rabbitmq' -d 'elasticsearch' -g 'kibana' -x 'rab_es_connector'
+# ./deploy.sh -c 'rabbitmq' -d 'elasticsearch' -g 'kibana' -x 'rab_es_connector'
+./deploy.sh -d 'influxdb'
 SCRIPT
 
 Vagrant.configure("2") do |config|
@@ -43,7 +44,9 @@ Vagrant.configure("2") do |config|
     # echo "hello-world"
     # SHELL
 
-    files = ["namespaces.yml", "rab_es_connector.yml", "utils.sh", "deploy.sh"]
+    config.vm.provision "file", source: "values/.", destination: "values/"
+    
+    files = ["namespaces.yml", "utils.sh", "deploy.sh"]
     files.each do |f|
       config.vm.provision "file", source: f, destination: f
     end

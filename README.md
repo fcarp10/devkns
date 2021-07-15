@@ -21,11 +21,11 @@ OPTIONS:
 \t communication tool to deploy.
 \n -d {"elasticsearch"|"influxdb"|"none"}
 \t database engine to deploy.
-\n -p ["openfaas"|"none"]
+\n -p {"openfaas"|"none"}
 \t serverless platform to deploy.
-\n -g ["kibana"|"none"]
+\n -g {"kibana"|"none"}
 \t GUI/dashboard to deploy.
-\n -x ["rabbitmq_elasticsearch"|"none"]
+\n -x {"rabbitmq_elasticsearch"|"none"}
 \t connectors to deploy.
 ```
 
