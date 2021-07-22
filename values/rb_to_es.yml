@@ -10,7 +10,7 @@ logstashPipeline:
       host => "rabbitmq.dev.svc"
       user => "user"
       password => "password"
-      queue => "topic_kns"
+      queue => "rb->es"
       durable => true
     }
   }

@@ -25,7 +25,7 @@ OPTIONS:
 \t serverless platform to deploy.
 \n -g {"kibana"|"none"}
 \t GUI/dashboard to deploy.
-\n -x {"rabbitmq_elasticsearch"|"none"}
+\n -x {"rb_to_es"| "es_to_rb" | "none"}
 \t connectors to deploy.
 ```
 

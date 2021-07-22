@@ -38,7 +38,7 @@ OPTIONS:
 \t serverless platform to deploy.
 \n -g {"kibana"|"none"}
 \t GUI/dashboard to deploy.
-\n -x {"rabbitmq_elasticsearch"|"none"}
+\n -x {"rb_to_es"| "es_to_rb" | "none"}
 \t connectors to deploy.
 '
 
@@ -47,7 +47,7 @@ communication="none"
 database="none"
 processing="none"
 dashboard="none"
-connector="none"
+connectors="none"
 
 while getopts ":c:d:p:g:x:" opt; do
     case $opt in
@@ -64,7 +64,7 @@ while getopts ":c:d:p:g:x:" opt; do
         dashboard="$OPTARG"
         ;;
     x)
-        connector="$OPTARG"
+        connectors+=("$OPTARG")
         ;;
     *)
         echo -e "Invalid option $1 \n\n${usage}"
@@ -100,10 +100,6 @@ log "INFO" "done"
 # create namespaces
 export DEV_NS=dev
 kubectl apply -f namespaces.yml # create namespaces
-
-
-
-
 
 ####### communication #######
 if [ "$communication" = "nats" ]; then
@@ -167,14 +163,19 @@ if [ "$dashboard" = "kibana" ]; then
     log "INFO" "done"
 fi
 
-####### connector #######
-if [ "$connector" = "rab_es_connector" ]; then
-    log "INFO" "deploying logstash for rabbitMQ --> elasticsearch..."
-    helm install logstash elastic/logstash --namespace $DEV_NS -f values/rab_es_connector.yml --set replicas=1
-    log "INFO" "done"
-fi
+####### connectors #######
+for conn in "${connectors[@]}"; do
+    if [ "$conn" = "rb_to_es" ]; then
+        log "INFO" "deploying logstash for rabbitMQ to elasticsearch..."
+        helm install logstash-rbtoes elastic/logstash --namespace $DEV_NS -f values/rb_to_es.yml --set replicas=1
+        log "INFO" "done"
 
-
+    elif [ "$conn" = "es_to_rb" ]; then
+        log "INFO" "deploying logstash for elasticsearch to rabbitMQ..."
+        helm install logstash-estorb elastic/logstash --namespace $DEV_NS -f values/es_to_rb.yml --set replicas=1
+        log "INFO" "done"
+    fi
+done
 
 ################################
 ##### wait for deployment ######
@@ -191,16 +192,15 @@ elif [ "$communication" = "kafka" ]; then
     log "INFO" "done"
 
 elif [[ "$communication" = "rabbitmq" ]]; then
-    blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER 
+    blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER
     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 5672 &
     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 15672:15672 &
     log "INFO" "done"
 fi
 
-
 ####### database #######
 if [ "$database" = "elasticsearch" ]; then
-    blockUntilPodIsReady "app=elasticsearch-master" $TIMER 
+    blockUntilPodIsReady "app=elasticsearch-master" $TIMER
     ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward -n $DEV_NS $ES_POD --address 0.0.0.0 9200 &
     log "INFO" "done"
@@ -213,7 +213,6 @@ elif [ "$database" = "influxdb" ]; then
     log "INFO" "done"
 fi
 
-
 ####### processing #######
 if [ "$processing" = "openfaas" ]; then
 
@@ -222,7 +221,7 @@ if [ "$processing" = "openfaas" ]; then
         curl -SLsf https://cli.openfaas.com | sudo sh
     }
 
-    blockUntilPodIsReady "app=gateway" $TIMER 
+    blockUntilPodIsReady "app=gateway" $TIMER
     kubectl rollout status -n openfaas deploy/gateway
     kubectl port-forward -n openfaas svc/gateway --address 0.0.0.0 8080:8080 &
 
@@ -252,18 +251,20 @@ fi
 
 ####### dashboard #######
 if [ "$dashboard" = "kibana" ]; then
-    blockUntilPodIsReady "app=kibana" $TIMER 
+    blockUntilPodIsReady "app=kibana" $TIMER
     KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward -n $DEV_NS $KIBANA_POD --address 0.0.0.0 5601:5601 &
     log "INFO" "done"
 fi
 
+####### connectors #######
+for conn in "${connectors[@]}"; do
+    if [ "$conn" = "rb_to_es" ]; then
+        blockUntilPodIsReady "app=logstash-rbtoes-logstash" $TIMER
+        log "INFO" "done"
 
-####### connector #######
-if [ "$connector" = "rab_es_connector" ]; then
-    blockUntilPodIsReady "app=logstash-logstash" $TIMER 
-    log "INFO" "done"
-fi
-
-
-
+    elif [ "$conn" = "es_to_rb" ]; then
+        blockUntilPodIsReady "app=logstash-estorb-logstash" $TIMER
+        log "INFO" "done"
+    fi
+done
