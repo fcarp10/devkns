@@ -90,7 +90,7 @@ log "DONE" "tools already installed"
 
 ####### k3s #######
 log "INFO" "installing k3s..."
-curl -sfL https://get.k3s.io | sh -
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.20.9+k3s1 sh -
 log "INFO" "waiting for k3s to start..."
 sleep 30
 mkdir ~/.kube
@@ -232,12 +232,11 @@ if [ "$processing" = "openfaas" ]; then
     log "DONE" "openfaas deployed successfully"
 
     log "INFO" "testing openfaas..."
-    faas store deploy NodeInfo
+    faas deploy --image fcarp10/payload-echo --name payload-echo
     MAX_ATTEMPTS=10
     for ((i = 0; i < $MAX_ATTEMPTS; i++)); do
-        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8080/function/nodeinfo) -eq 200 ]]; then
+        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8080/function/payload-echo) -eq 200 ]]; then
             log "DONE" "function is running successfully"
-            faas rm nodeinfo
             break
         else
             log "WARN" "function is not running yet"
