@@ -16,8 +16,9 @@ logstashPipeline:
   }
   output {
     elasticsearch {
-        hosts => "elasticsearch-master"
-        data_stream => "true"
-        pipeline => "calculate_lag"
+      hosts => "elasticsearch-master"
+      data_stream => "false"
+      pipeline => "calculate_lag"
+      index => "logstash"
     }
   }
