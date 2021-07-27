@@ -232,10 +232,10 @@ if [ "$processing" = "openfaas" ]; then
     log "DONE" "openfaas deployed successfully"
 
     log "INFO" "testing openfaas..."
-    faas deploy --image fcarp10/payload-echo --name payload-echo
+    faas deploy --image fcarp10/payload-echo-rbes --name payload-echo-rbes
     MAX_ATTEMPTS=10
     for ((i = 0; i < $MAX_ATTEMPTS; i++)); do
-        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8080/function/payload-echo) -eq 200 ]]; then
+        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8080/function/payload-echo-rbes) -eq 200 ]]; then
             log "DONE" "function is running successfully"
             break
         else
