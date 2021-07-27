@@ -17,8 +17,8 @@ logstashPipeline:
       host => "rabbitmq.dev.svc"
       user => "user"
       password => "password"
-      exchange => "amq.direct"
-      exchange_type => "direct"
+      exchange => "amq.topic"
+      exchange_type => "topic"
       durable => true
     }
   }

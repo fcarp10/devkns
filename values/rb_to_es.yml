@@ -10,7 +10,7 @@ logstashPipeline:
       host => "rabbitmq.dev.svc"
       user => "user"
       password => "password"
-      queue => "rb->es"
+      exchange => "amq.topic"
       durable => true
     }
   }
@@ -18,5 +18,6 @@ logstashPipeline:
     elasticsearch {
         hosts => "elasticsearch-master"
         data_stream => "true"
+        pipeline => "calculate_lag"
     }
   }
