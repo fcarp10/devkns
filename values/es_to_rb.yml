@@ -9,7 +9,7 @@ logstashPipeline:
     elasticsearch {
         hosts => "elasticsearch-master"
         query => '{ "query": { "match": { "statuscode": 200 } }, "sort": [ "_doc" ] }'
-        schedule => "1s"
+        schedule => "* * * * *"
       }
   }
   output {
