@@ -12,6 +12,19 @@ logstashPipeline:
       password => "password"
       exchange => "amq.topic"
       durable => true
+      queue => "faas_client_rb_es"
+      type => "faas_client_rb_es"
+      key => "faas_client_rb_es"
+    }
+    rabbitmq {
+      host => "rabbitmq.dev.svc"
+      user => "user"
+      password => "password"
+      exchange => "amq.topic"
+      durable => true
+      queue => "faas_rb"
+      type => "faas_rb"
+      key => "faas_rb"
     }
   }
   output {
@@ -19,6 +32,6 @@ logstashPipeline:
       hosts => "elasticsearch-master"
       data_stream => "false"
       pipeline => "calculate_lag"
-      index => "logstash"
+      index => "%{type}"
     }
   }
