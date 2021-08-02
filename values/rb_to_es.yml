@@ -7,24 +7,24 @@ logstashPipeline:
  logstash.conf: |
   input {
     rabbitmq {
-      host => "rabbitmq.dev.svc"
+      host => "rabbitmq"
       user => "user"
       password => "password"
       exchange => "amq.topic"
       durable => true
-      queue => "faas_client_rb_es"
-      type => "faas_client_rb_es"
-      key => "faas_client_rb_es"
+      queue => "fs-ct-rb-es"
+      type => "fs-ct-rb-es"
+      key => "fs-ct-rb-es"
     }
     rabbitmq {
-      host => "rabbitmq.dev.svc"
+      host => "rabbitmq"
       user => "user"
       password => "password"
       exchange => "amq.topic"
       durable => true
-      queue => "faas_rb"
-      type => "faas_rb"
-      key => "faas_rb"
+      queue => "fs-rb-es"
+      type => "fs-rb-es"
+      key => "fs-rb-es"
     }
   }
   output {

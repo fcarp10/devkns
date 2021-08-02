@@ -14,7 +14,7 @@ logstashPipeline:
   }
   output {
     rabbitmq {
-      host => "rabbitmq.dev.svc"
+      host => "rabbitmq"
       user => "user"
       password => "password"
       exchange => "amq.topic"
