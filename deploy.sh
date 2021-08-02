@@ -116,8 +116,8 @@ elif [ "$communication" = "kafka" ]; then
 
 elif [[ "$communication" = "rabbitmq" ]]; then
     log "INFO" "deploying rabbitMQ..."
-    helm repo add bitnami https://charts.bitnami.com/bitnami
-    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS --set replicas=1 --set auth.password=password
+    helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/
+    helm install rabbitmq groundhog2k/rabbitmq --version 0.2.19 --namespace $DEV_NS --set replicaCount=1 --set authentication.user=user --set authentication.password=password
     log "INFO" "done"
 fi
 
