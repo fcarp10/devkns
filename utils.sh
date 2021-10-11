@@ -37,3 +37,19 @@ function blockUntilPodIsReady() {
     sleep 1
   done
 }
+
+function waitUntilK3sIsReady() {
+  local secs="$1"
+  STATUS_CMD="sudo kubectl cluster-info"
+  until $STATUS_CMD; do
+    $STATUS_CMD
+    if [ "$secs" -eq 0 ]; then
+      echo "k3s could not be deployed"
+      exit 1
+    fi
+
+    : $((secs--))
+    echo -n .
+    sleep 1
+  done
+}

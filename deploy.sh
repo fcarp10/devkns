@@ -9,6 +9,8 @@ source utils.sh
 #   DO NOT JUST RUN THIS. EXAMINE AND JUDGE. RUN AT YOUR OWN RISK.
 ###############################################################################
 
+TIMER=480
+
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 ORANGE='\033[0;33m'
@@ -30,15 +32,15 @@ function log() {
 usage='Usage:
 '$0' [OPTION]
 OPTIONS:
-\n -c {"nats"|"kafka"|"rabbitmq"|"none"}
+\n -c {"nats"|"kafka"|"rabbitmq"}
 \t communication tool to deploy.
-\n -d {"elasticsearch"|"influxdb"|"none"}
+\n -d {"elasticsearch"|"influxdb"}
 \t database engine to deploy.
-\n -p {"openfaas"|"none"}
+\n -p {"openfaas"}
 \t serverless platform to deploy.
-\n -g {"kibana"|"none"}
+\n -g {"kibana"}
 \t GUI/dashboard to deploy.
-\n -x {"rb_to_es"| "es_to_rb" | "none"}
+\n -x NAME_OF_YML_FILE (e.g. "rbtoes")
 \t connectors to deploy.
 '
 
@@ -92,7 +94,7 @@ log "DONE" "tools already installed"
 log "INFO" "installing k3s..."
 curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.20.9+k3s1 sh -
 log "INFO" "waiting for k3s to start..."
-sleep 30
+waitUntilK3sIsReady $TIMER
 mkdir ~/.kube
 sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
 log "INFO" "done"
@@ -165,14 +167,9 @@ fi
 
 ####### connectors #######
 for conn in "${connectors[@]}"; do
-    if [ "$conn" = "rb_to_es" ]; then
-        log "INFO" "deploying logstash for rabbitMQ to elasticsearch..."
-        helm install logstash-rbtoes elastic/logstash --namespace $DEV_NS -f values/rb_to_es.yml --set replicas=1
-        log "INFO" "done"
-
-    elif [ "$conn" = "es_to_rb" ]; then
-        log "INFO" "deploying logstash for elasticsearch to rabbitMQ..."
-        helm install logstash-estorb elastic/logstash --namespace $DEV_NS -f values/es_to_rb.yml --set replicas=1
+    if [ "$conn" != "none" ]; then
+        log "INFO" "deploying logstash using ${conn}.yml file..."
+        helm install logstash-"${conn}" elastic/logstash --namespace $DEV_NS -f connectors/"${conn}".yml --set replicas=1
         log "INFO" "done"
     fi
 done
@@ -180,7 +177,6 @@ done
 ################################
 ##### wait for deployment ######
 ################################
-TIMER=480
 
 ####### communication #######
 if [ "$communication" = "nats" ]; then
@@ -258,12 +254,8 @@ fi
 
 ####### connectors #######
 for conn in "${connectors[@]}"; do
-    if [ "$conn" = "rb_to_es" ]; then
-        blockUntilPodIsReady "app=logstash-rbtoes-logstash" $TIMER
-        log "INFO" "done"
-
-    elif [ "$conn" = "es_to_rb" ]; then
-        blockUntilPodIsReady "app=logstash-estorb-logstash" $TIMER
+    if [ "$conn" != "none" ]; then
+        blockUntilPodIsReady "app=logstash-${conn}-logstash" $TIMER
         log "INFO" "done"
     fi
 done
