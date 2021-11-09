@@ -189,8 +189,8 @@ elif [ "$communication" = "kafka" ]; then
 
 elif [[ "$communication" = "rabbitmq" ]]; then
     blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER
-    kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 5672 &
-    kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 15672:15672 &
+    kubectl port-forward -n $DEV_NS svc/rabbitmq --streaming-connection-idle-timeout=0 --address 0.0.0.0 5672 &
+    kubectl port-forward -n $DEV_NS svc/rabbitmq --streaming-connection-idle-timeout=0 --address 0.0.0.0 15672:15672 &
     log "INFO" "done"
 fi
 
@@ -198,14 +198,14 @@ fi
 if [ "$database" = "elasticsearch" ]; then
     blockUntilPodIsReady "app=elasticsearch-master" $TIMER
     ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $ES_POD --address 0.0.0.0 9200 &
+    kubectl port-forward -n $DEV_NS $ES_POD --streaming-connection-idle-timeout=0 --address 0.0.0.0 9200 &
     log "INFO" "done"
 
 elif [ "$database" = "influxdb" ]; then
     blockUntilPodIsReady "app.kubernetes.io/name=influxdb2" $TIMER
     # PASSWORD=$(kubectl get secret -n $DEV_NS influxdb-influxdb2-auth -o jsonpath="{.data['admin-password']}" | base64 --decode)
     INF_POD=$(kubectl get pods -n $DEV_NS -l "app.kubernetes.io/name=influxdb2" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $INF_POD --address 0.0.0.0 8086:8086 &
+    kubectl port-forward -n $DEV_NS $INF_POD --streaming-connection-idle-timeout=0 --address 0.0.0.0 8086:8086 &
     log "INFO" "done"
 fi
 
@@ -219,7 +219,7 @@ if [ "$processing" = "openfaas" ]; then
 
     blockUntilPodIsReady "app=gateway" $TIMER
     kubectl rollout status -n openfaas deploy/gateway
-    kubectl port-forward -n openfaas svc/gateway --address 0.0.0.0 8080:8080 &
+    kubectl port-forward -n openfaas svc/gateway --streaming-connection-idle-timeout=0 --address 0.0.0.0 8080:8080 &
 
     log "INFO" "please wait..."
     sleep 5
@@ -248,7 +248,7 @@ fi
 if [ "$dashboard" = "kibana" ]; then
     blockUntilPodIsReady "app=kibana" $TIMER
     KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $KIBANA_POD --address 0.0.0.0 5601:5601 &
+    kubectl port-forward -n $DEV_NS $KIBANA_POD --streaming-connection-idle-timeout=0 --address 0.0.0.0 5601:5601 &
     log "INFO" "done"
 fi
 
