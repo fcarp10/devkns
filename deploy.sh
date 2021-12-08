@@ -84,6 +84,10 @@ command -v jq >/dev/null 2>&1 || {
     log "ERROR" "jq not found, aborting."
     exit 1
 }
+command -v nc >/dev/null 2>&1 || {
+    log "ERROR" "nc (netcat) not found, aborting."
+    exit 1
+}
 command -v helm >/dev/null 2>&1 || {
     log "WARN" "helm not found, installing..."
     curl -sSLf https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash

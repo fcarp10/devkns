@@ -11,7 +11,7 @@ Script for automated deployment on k3s of:
 
 ## [Option 1] Installation
 
-`curl` and `jq` are required for the script to work. 
+`curl`, `jq` and `nc` are required for the script to work. 
 
 ```shell
 ./deploy.sh -h
