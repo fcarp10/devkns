@@ -191,7 +191,7 @@ elif [ "$communication" = "kafka" ]; then
     ## TBD
     log "INFO" "done"
 
-elif [[ "$communication" = "rabbitmq" ]]; then
+elif [ "$communication" = "rabbitmq" ]; then
     blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER
     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 5672 &
     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 15672:15672 &
@@ -266,10 +266,9 @@ done
 
 log "INFO" "keeping connections alive..."
 while true ; do 
-    nc -vz 127.0.0.1 5672 
-    nc -vz 127.0.0.1 15672
-    nc -vz 127.0.0.1 9200
-    nc -vz 127.0.0.1 8080
-    nc -vz 127.0.0.1 5601
-    sleep 30
+    if [ "$communication" = "rabbitmq" ]; then nc -vz 127.0.0.1 5672; nc -vz 127.0.0.1 15672; fi
+    if [ "$database" = "elasticsearch" ]; then nc -vz 127.0.0.1 9200; fi
+    if [ "$processing" = "openfaas" ]; then nc -vz 127.0.0.1 8080; fi
+    if [ "$dashboard" = "kibana" ]; then nc -vz 127.0.0.1 5601; fi
+    sleep 60
 done
