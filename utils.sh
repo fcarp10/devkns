@@ -25,10 +25,10 @@ function blockUntilPodIsReady() {
   local label="$1"
   local secs="$2"
 
-  echo -n "Waiting for \"${label}\" to be ready: "
+  log "INFO" "Waiting for \"${label}\" to be ready: "
   until [[ $(podStatus "${label}") =~ "true" ]]; do
     if [ "$secs" -eq 0 ]; then
-      echo "\"${label}\" never stabilized."
+      log "ERROR" "\"${label}\" never stabilized."
       exit 1
     fi
 
@@ -44,7 +44,7 @@ function waitUntilK3sIsReady() {
   until $STATUS_CMD; do
     $STATUS_CMD
     if [ "$secs" -eq 0 ]; then
-      echo "k3s could not be deployed"
+      log "ERROR" "k3s could not be deployed"
       exit 1
     fi
 
