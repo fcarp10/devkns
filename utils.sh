@@ -25,7 +25,7 @@ function blockUntilPodIsReady() {
   local label="$1"
   local secs="$2"
 
-  log "INFO" "Waiting for \"${label}\" to be ready: "
+  log "INFO" "waiting for \"${label}\" to be ready: "
   until [[ $(podStatus "${label}") =~ "true" ]]; do
     if [ "$secs" -eq 0 ]; then
       log "ERROR" "\"${label}\" never stabilized."
@@ -36,20 +36,24 @@ function blockUntilPodIsReady() {
     echo -n .
     sleep 1
   done
+  echo " ready."
 }
 
 function waitUntilK3sIsReady() {
   local secs="$1"
-  STATUS_CMD="sudo kubectl cluster-info"
-  until $STATUS_CMD; do
-    $STATUS_CMD
+  local ready=false
+  while [ "$ready" = false ]; do
+    check=$(sudo kubectl get nodes 2>/dev/null | grep 'Ready' | awk '{print $2;}')
+    : $((secs--))
+    echo -n .
+    sleep 1
+    if [ "$check" = "Ready" ]; then
+      ready=true
+      echo " ready."
+    fi
     if [ "$secs" -eq 0 ]; then
       log "ERROR" "k3s could not be deployed"
       exit 1
     fi
-
-    : $((secs--))
-    echo -n .
-    sleep 1
   done
 }

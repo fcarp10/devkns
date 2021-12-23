@@ -98,14 +98,15 @@ log "DONE" "tools already installed"
 log "INFO" "installing k3s..."
 curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.20.9+k3s1 sh -
 log "INFO" "waiting for k3s to start..."
+sleep 30
 waitUntilK3sIsReady $TIMER
-mkdir ~/.kube
+rm -rf ~/.kube && mkdir ~/.kube
 sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
 log "INFO" "done"
 
 # create namespaces
 export DEV_NS=dev
-kubectl apply -f namespaces.yml # create namespaces
+kubectl apply -f namespaces.yml
 
 ####### communication #######
 if [ "$communication" = "nats" ]; then
@@ -232,11 +233,12 @@ if [ "$processing" = "openfaas" ]; then
     log "DONE" "openfaas deployed successfully"
 
     log "INFO" "testing openfaas..."
-    faas deploy --image fcarp10/payload-echo-rbes --name payload-echo-rbes
+    faas deploy --image fcarp10/hello-world --name hello-world
     MAX_ATTEMPTS=10
     for ((i = 0; i < $MAX_ATTEMPTS; i++)); do
-        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" -d '{"test":"test"}' http://127.0.0.1:8080/function/payload-echo-rbes) -eq 200 ]]; then
+        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" -d '{"test":"test"}' http://127.0.0.1:8080/function/hello-world) -eq 200 ]]; then
             log "DONE" "function is running successfully"
+            faas remove hello-world
             break
         else
             log "WARN" "function is not running yet"
