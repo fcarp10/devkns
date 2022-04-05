@@ -6,7 +6,7 @@ ports=[8080, 5672, 15672, 9200, 5601, 8086] # [openfaas, rabbitmq, rabbitmq, ela
 
 $script = <<-'SCRIPT'
 sudo apt-get update && sudo apt-get install curl jq -y
-./deploy.sh -c 'rabbitmq' -d 'elasticsearch' -p 'openfaas' -x 'rb_to_es'
+./deploy.sh -o
 SCRIPT
 
 Vagrant.configure("2") do |config|
@@ -43,7 +43,7 @@ Vagrant.configure("2") do |config|
     # echo "hello-world"
     # SHELL
 
-    config.vm.provision "file", source: "values/.", destination: "values/"
+    config.vm.provision "file", source: "connectors/.", destination: "connectors/"
     
     files = ["namespaces.yml", "utils.sh", "deploy.sh"]
     files.each do |f|

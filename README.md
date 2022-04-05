@@ -1,55 +1,36 @@
 # devkns
 
-Script for automated deployment on k3s of:
+This script uses `k3s` for deployment of the following tools:
 
-- Communication: NATS, Kafka or RabbitMQ
-- Database: Elasticsearch or InfluxDB
-- Processing: OpenFaas
-- Dashboard: Kibana
-
-
+- `rabbitmq`
+- `kafka`
+- `nats`
+- `elasticsearch`
+- `openfaas`
+- `logstash`
 
 ## [Option 1] Installation
 
-`curl`, `jq` and `nc` are required for the script to work. 
+Prerequisites: `curl`, `jq` and `nc`.
 
 ```shell
 ./deploy.sh -h
 
 OPTIONS:
-\n -c {"nats"|"kafka"|"rabbitmq"|"none"}
-\t communication tool to deploy.
-\n -d {"elasticsearch"|"influxdb"|"none"}
-\t database engine to deploy.
-\n -p {"openfaas"|"none"}
-\t serverless platform to deploy.
-\n -g {"kibana"|"none"}
-\t GUI/dashboard to deploy.
-\n -x {"rb_to_es"| "es_to_rb" | "none"}
-\t connectors to deploy.
-```
-
-To uninstall everything, run the following script:
-
-```shell
-/usr/local/bin/k3s-uninstall.sh
+-r \t deploys rabbitmq.
+-k \t deploys kafka.
+-n \t deploys nats.
+-e \t deploys elasticsearch.
+-o \t deploys openfaas.
+-l YAML_FILE \t deploys logstash.
+-u \t uninstalls everything.
 ```
 
 ## [Option 2] Deploy using vagrant (recommended)
 
-### Prerequisites 
+Prerequisites: `vagrant` and virtualbox (provider).
 
-- vagrant
-- virtualbox (provider)
-
-
-### Deployment
-
-Modify Vagrantfile `deploy.sh` script accordingly:
-
-```ruby
-config.vm.provision "shell", path: "deploy.sh" 
-```
+Modify script command in Vagrantfile accordingly.
 
 Deploy and connect to the vm:
 ```shell

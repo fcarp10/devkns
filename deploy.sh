@@ -32,41 +32,44 @@ function log() {
 usage='Usage:
 '$0' [OPTION]
 OPTIONS:
-\n -c {"nats"|"kafka"|"rabbitmq"}
-\t communication tool to deploy.
-\n -d {"elasticsearch"|"influxdb"}
-\t database engine to deploy.
-\n -p {"openfaas"}
-\t serverless platform to deploy.
-\n -g {"kibana"}
-\t GUI/dashboard to deploy.
-\n -x NAME_OF_YML_FILE (e.g. "rbtoes")
-\t connectors to deploy.
+-r \t deploys rabbitmq.
+-k \t deploys kafka.
+-n \t deploys nats.
+-e \t deploys elasticsearch.
+-o \t deploys openfaas.
+-l YAML_FILE \t deploys logstash.
+-u \t uninstalls everything.
 '
+rabbitmq=false
+kafka=false
+nats=false
+elasticsearch=false
+openfaas=false
+logstash="none"
 
-# default values
-communication="none"
-database="none"
-processing="none"
-dashboard="none"
-connectors="none"
-
-while getopts ":c:d:p:g:x:" opt; do
+while getopts "rkneo:l:u" opt; do
     case $opt in
-    c)
-        communication="$OPTARG"
+    r)
+        rabbitmq=true
         ;;
-    d)
-        database="$OPTARG"
+    k)
+        kafka=true
         ;;
-    p)
-        processing="$OPTARG"
+    n)
+        nats=true
         ;;
-    g)
-        dashboard="$OPTARG"
+    e)
+        elasticsearch=true
         ;;
-    x)
-        connectors+=("$OPTARG")
+    o)
+        openfaas=true
+        ;;
+    l)
+        logstash+=("$OPTARG")
+        ;;
+    u) 
+        /usr/local/bin/k3s-uninstall.sh
+        exit 0
         ;;
     *)
         echo -e "Invalid option $1 \n\n${usage}"
@@ -94,59 +97,54 @@ command -v helm >/dev/null 2>&1 || {
 }
 log "DONE" "tools already installed"
 
-####### k3s #######
-log "INFO" "installing k3s..."
-curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.20.9+k3s1 sh -
-log "INFO" "waiting for k3s to start..."
-sleep 30
-waitUntilK3sIsReady $TIMER
-rm -rf ~/.kube && mkdir ~/.kube
-sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
-log "INFO" "done"
-
-# create namespaces
-export DEV_NS=dev
-kubectl apply -f namespaces.yml
-
-####### communication #######
-if [ "$communication" = "nats" ]; then
-    log "INFO" "deploying nats..."
-    helm repo add nats https://nats-io.github.io/k8s/helm/charts/
-    helm install nats nats/nats --namespace $DEV_NS --set stan.replicas=1
+# deploy k3s
+export DEV_NS=default
+if hash sudo kubectl 2>/dev/null; then
+    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
+    kubectl apply -f namespaces.yml
+else
+    log "INFO" "installing k3s..."
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.20.9+k3s1 sh -
+    log "INFO" "waiting for k3s to start..."
+    sleep 30
+    waitUntilK3sIsReady $TIMER
+    rm -rf ~/.kube && mkdir ~/.kube
+    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
+    kubectl apply -f namespaces.yml
     log "INFO" "done"
+fi
 
-elif [ "$communication" = "kafka" ]; then
-    log "INFO" "deploying kafka..."
-    helm repo add bitnami https://charts.bitnami.com/bitnami
-    helm install kafka bitnami/kafka --namespace $DEV_NS
-    log "INFO" "done"
-
-elif [[ "$communication" = "rabbitmq" ]]; then
+# deploy selected tools
+if [[ "$rabbitmq" = true ]]; then
     log "INFO" "deploying rabbitMQ..."
     helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/
     helm install rabbitmq groundhog2k/rabbitmq --version 0.2.19 --namespace $DEV_NS --set replicaCount=1 --set authentication.user=user --set authentication.password=password
     log "INFO" "done"
 fi
-
-####### database #######
-if [ "$database" = "elasticsearch" ]; then
+if [ "$nats" = true ]; then
+    log "INFO" "deploying nats..."
+    helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+    helm install nats nats/nats --namespace $DEV_NS --set stan.replicas=1
+    log "INFO" "done"
+fi
+if [ "$kafka" = true ]; then
+    log "INFO" "deploying kafka..."
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm install kafka bitnami/kafka --namespace $DEV_NS
+    log "INFO" "done"
+fi
+if [ "$elasticsearch" = true ]; then
     log "INFO" "deploying elasticsearch..."
     helm repo add elastic https://Helm.elastic.co
     helm install elasticsearch elastic/elasticsearch --namespace $DEV_NS --set replicas=1
     log "INFO" "done"
-
-elif [ "$database" = "influxdb" ]; then
-    log "INFO" "deploying influxdb..."
-    helm repo add influxdata https://helm.influxdata.com/
-    helm install influxdb influxdata/influxdb2 --namespace $DEV_NS \
-        --set adminUser.password=pass123456 \
-        --set adminUser.token=token123456
-    log "INFO" "done"
 fi
-
-####### processing #######
-if [ "$processing" = "openfaas" ]; then
+if [ "$openfaas" = true ]; then
     log "INFO" "deploying openfaas..."
+    command -v faas >/dev/null 2>&1 || {
+        log "WARN" "faas cli not found, installing..."
+        curl -SLsf https://cli.openfaas.com | sudo sh
+    }
     export TIMEOUT=2m
     helm repo add openfaas https://openfaas.github.io/faas-netes/
     helm install openfaas openfaas/openfaas \
@@ -161,77 +159,44 @@ if [ "$processing" = "openfaas" ]; then
         --set queueWorker.ackWait=$TIMEOUT
     log "INFO" "done"
 fi
-
-####### dashboard #######
-if [ "$dashboard" = "kibana" ]; then
-    log "INFO" "deploying kibana..."
-    helm repo add elastic https://Helm.elastic.co
-    helm install kibana elastic/kibana --namespace $DEV_NS --set replicas=1
-    log "INFO" "done"
-fi
-
-####### connectors #######
-for conn in "${connectors[@]}"; do
-    if [ "$conn" != "none" ]; then
-        log "INFO" "deploying logstash using ${conn}.yml file..."
-        helm install logstash-"${conn}" elastic/logstash --namespace $DEV_NS -f connectors/"${conn}".yml --set replicas=1
+for logst in "${logstash[@]}"; do
+    if [ "$logst" != "none" ]; then
+        log "INFO" "deploying logstash using ${logst}.yml file..."
+        helm install logstash-"${logst}" elastic/logstash --namespace $DEV_NS -f connectors/"${logst}".yml --set replicas=1
         log "INFO" "done"
     fi
 done
 
-################################
-##### wait for deployment ######
-################################
-
-####### communication #######
-if [ "$communication" = "nats" ]; then
-    ## TBD
-    log "INFO" "done"
-
-elif [ "$communication" = "kafka" ]; then
-    ## TBD
-    log "INFO" "done"
-
-elif [ "$communication" = "rabbitmq" ]; then
+# wait for deployment
+if [[ "$rabbitmq" = true ]]; then
     blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER
     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 5672 &
     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 15672:15672 &
     log "INFO" "done"
 fi
-
-####### database #######
-if [ "$database" = "elasticsearch" ]; then
+if [ "$nats" = true ]; then
+    ## TBD
+    log "INFO" "done"
+fi
+if [ "$kafka" = true ]; then
+    ## TBD
+    log "INFO" "done"
+fi
+if [ "$elasticsearch" = true ]; then
     blockUntilPodIsReady "app=elasticsearch-master" $TIMER
     ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
     kubectl port-forward -n $DEV_NS $ES_POD --address 0.0.0.0 9200 &
     log "INFO" "done"
-
-elif [ "$database" = "influxdb" ]; then
-    blockUntilPodIsReady "app.kubernetes.io/name=influxdb2" $TIMER
-    # PASSWORD=$(kubectl get secret -n $DEV_NS influxdb-influxdb2-auth -o jsonpath="{.data['admin-password']}" | base64 --decode)
-    INF_POD=$(kubectl get pods -n $DEV_NS -l "app.kubernetes.io/name=influxdb2" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $INF_POD --address 0.0.0.0 8086:8086 &
-    log "INFO" "done"
 fi
-
-####### processing #######
-if [ "$processing" = "openfaas" ]; then
-
-    command -v faas >/dev/null 2>&1 || {
-        log "WARN" "faas cli not found, installing..."
-        curl -SLsf https://cli.openfaas.com | sudo sh
-    }
-
+if [ "$openfaas" = true ]; then
     blockUntilPodIsReady "app=gateway" $TIMER
     kubectl rollout status -n openfaas deploy/gateway
     kubectl port-forward -n openfaas svc/gateway --address 0.0.0.0 8080:8080 &
-
     log "INFO" "please wait..."
     sleep 5
     PASSWORD=$(kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode)
     echo -n $PASSWORD | faas-cli login --username admin --password-stdin
     log "DONE" "openfaas deployed successfully"
-
     log "INFO" "testing openfaas..."
     faas deploy --image fcarp10/hello-world --name hello-world
     MAX_ATTEMPTS=10
@@ -248,29 +213,23 @@ if [ "$processing" = "openfaas" ]; then
             fi
         fi
     done
-fi
-
-####### dashboard #######
-if [ "$dashboard" = "kibana" ]; then
-    blockUntilPodIsReady "app=kibana" $TIMER
-    KIBANA_POD=$(kubectl get pods -n $DEV_NS -l "app=kibana" -o jsonpath="{.items[0].metadata.name}")
-    kubectl port-forward -n $DEV_NS $KIBANA_POD --address 0.0.0.0 5601:5601 &
     log "INFO" "done"
 fi
-
-####### connectors #######
-for conn in "${connectors[@]}"; do
-    if [ "$conn" != "none" ]; then
-        blockUntilPodIsReady "app=logstash-${conn}-logstash" $TIMER
+for logst in "${logstash[@]}"; do
+    if [ "$logst" != "none" ]; then
+        blockUntilPodIsReady "app=logstash-${logst}-logstash" $TIMER
         log "INFO" "done"
     fi
 done
 
+# keep connections alive
 log "INFO" "keeping connections alive..."
-while true ; do 
-    if [ "$communication" = "rabbitmq" ]; then nc -vz 127.0.0.1 5672; nc -vz 127.0.0.1 15672; fi
-    if [ "$database" = "elasticsearch" ]; then nc -vz 127.0.0.1 9200; fi
-    if [ "$processing" = "openfaas" ]; then nc -vz 127.0.0.1 8080; fi
-    if [ "$dashboard" = "kibana" ]; then nc -vz 127.0.0.1 5601; fi
+while true; do
+    if [ "$rabbitmq" = true ]; then
+        nc -vz 127.0.0.1 5672
+        nc -vz 127.0.0.1 15672
+    fi
+    if [ "$elasticsearch" = true ]; then nc -vz 127.0.0.1 9200; fi
+    if [ "$openfaas" = true ]; then nc -vz 127.0.0.1 8080; fi
     sleep 60
 done
