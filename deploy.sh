@@ -98,7 +98,7 @@ command -v helm >/dev/null 2>&1 || {
 log "DONE" "tools already installed"
 
 # deploy k3s
-export DEV_NS=default
+export DEV_NS=dev
 if hash sudo kubectl 2>/dev/null; then
     sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/k3s-config && sudo chown $USER: ~/.kube/k3s-config && export KUBECONFIG=~/.kube/k3s-config
     kubectl apply -f namespaces.yml
@@ -117,8 +117,8 @@ fi
 # deploy selected tools
 if [[ "$rabbitmq" = true ]]; then
     log "INFO" "deploying rabbitMQ..."
-    helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/
-    helm install rabbitmq groundhog2k/rabbitmq --version 0.2.19 --namespace $DEV_NS --set replicaCount=1 --set authentication.user=user --set authentication.password=password
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS --set replicaCount=1 --set auth.username=user,auth.password=password
     log "INFO" "done"
 fi
 if [ "$nats" = true ]; then
