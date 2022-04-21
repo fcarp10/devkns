@@ -47,7 +47,7 @@ elasticsearch=false
 openfaas=false
 logstash="none"
 
-while getopts "rkneo:l:u" opt; do
+while getopts "rkneol:u" opt; do
     case $opt in
     r)
         rabbitmq=true
