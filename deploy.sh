@@ -118,8 +118,9 @@ fi
 if [[ "$rabbitmq" = true ]]; then
     log "INFO" "deploying rabbitMQ..."
     helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm repo update
     helm install rabbitmq bitnami/rabbitmq --namespace $DEV_NS \
-        --version 8.31.2 \
+        --version 10.1.14 \
         --set replicaCount=1 \
         --set auth.username=user,auth.password=password \
         --set service.type=NodePort,service.nodePorts.amqp=30672,service.nodePorts.manager=31672
@@ -128,18 +129,21 @@ fi
 if [ "$nats" = true ]; then
     log "INFO" "deploying nats..."
     helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+    helm repo update
     helm install nats nats/nats --namespace $DEV_NS --set stan.replicas=1
     log "INFO" "done"
 fi
 if [ "$kafka" = true ]; then
     log "INFO" "deploying kafka..."
     helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm repo update
     helm install kafka bitnami/kafka --namespace $DEV_NS
     log "INFO" "done"
 fi
 if [ "$elasticsearch" = true ]; then
     log "INFO" "deploying elasticsearch..."
     helm repo add elastic https://Helm.elastic.co
+    helm repo update
     helm install elasticsearch elastic/elasticsearch --namespace $DEV_NS \
         --version 7.17.1 \
         --set replicas=1 \
@@ -154,6 +158,7 @@ if [ "$openfaas" = true ]; then
     }
     export TIMEOUT=2m
     helm repo add openfaas https://openfaas.github.io/faas-netes/
+    helm repo update
     helm install openfaas openfaas/openfaas \
         --namespace openfaas \
         --set functionNamespace=$DEV_NS \
@@ -180,8 +185,6 @@ done
 # wait for deployment
 if [[ "$rabbitmq" = true ]]; then
     blockUntilPodIsReady "app.kubernetes.io/name=rabbitmq" $TIMER
-#     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 5672 &
-#     kubectl port-forward -n $DEV_NS svc/rabbitmq --address 0.0.0.0 15672:15672 &
     log "INFO" "done"
 fi
 if [ "$nats" = true ]; then
@@ -194,8 +197,6 @@ if [ "$kafka" = true ]; then
 fi
 if [ "$elasticsearch" = true ]; then
     blockUntilPodIsReady "app=elasticsearch-master" $TIMER
-    # ES_POD=$(kubectl get pods -n $DEV_NS -l "app=elasticsearch-master" -o jsonpath="{.items[0].metadata.name}")
-    # kubectl port-forward -n $DEV_NS $ES_POD --address 0.0.0.0 9200 &
     log "INFO" "done"
 fi
 if [ "$openfaas" = true ]; then
@@ -233,13 +234,8 @@ for logst in "${logstash[@]}"; do
 done
 
 # keep connections alive
-# log "INFO" "keeping connections alive..."
-# while true; do
-#     if [ "$rabbitmq" = true ]; then
-#         nc -vz 127.0.0.1 5672
-#         nc -vz 127.0.0.1 15672
-#     fi
-#     if [ "$elasticsearch" = true ]; then nc -vz 127.0.0.1 9200; fi
-#     if [ "$openfaas" = true ]; then nc -vz 127.0.0.1 8080; fi
-#     sleep 60
-# done
+log "INFO" "keeping connections alive..."
+while true; do
+    if [ "$openfaas" = true ]; then nc -vz 127.0.0.1 8080; fi
+    sleep 60
+done
