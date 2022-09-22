@@ -168,7 +168,9 @@ if [ "$openfaas" = true ]; then
         --set gateway.readTimeout=$TIMEOUT \
         --set faasnetes.writeTimeout=$TIMEOUT \
         --set faasnetes.readTimeout=$TIMEOUT \
-        --set queueWorker.ackWait=$TIMEOUT
+        --set queueWorker.ackWait=$TIMEOUT \
+        --set gateway.nodePort=31112 \
+        --version 10.0.8
     log "INFO" "done"
 fi
 for logst in "${logstash[@]}"; do
@@ -202,19 +204,18 @@ fi
 if [ "$openfaas" = true ]; then
     blockUntilPodIsReady "app=gateway" $TIMER
     kubectl rollout status -n openfaas deploy/gateway
-    kubectl port-forward -n openfaas svc/gateway --address 0.0.0.0 8080:8080 &
     log "INFO" "please wait..."
     sleep 5
     PASSWORD=$(kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode)
-    echo -n $PASSWORD | faas-cli login --username admin --password-stdin
+    echo -n $PASSWORD | faas login -g http://127.0.0.1:31112 -u admin -s
     log "DONE" "openfaas deployed successfully"
     log "INFO" "testing openfaas..."
-    faas deploy --image fcarp10/hello-world --name hello-world
+    faas deploy -g http://127.0.0.1:31112 --image fcarp10/hello-world --name hello-world
     MAX_ATTEMPTS=10
     for ((i = 0; i < $MAX_ATTEMPTS; i++)); do
-        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8080/function/hello-world) -eq 200 ]]; then
+        if [[ $(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:31112/function/hello-world) -eq 200 ]]; then
             log "DONE" "function is running successfully"
-            faas remove hello-world
+            faas remove -g http://127.0.0.1:31112 hello-world
             break
         else
             log "WARN" "function is not running yet"
@@ -231,11 +232,4 @@ for logst in "${logstash[@]}"; do
         blockUntilPodIsReady "app=logstash-${logst}-logstash" $TIMER
         log "INFO" "done"
     fi
-done
-
-# keep connections alive
-log "INFO" "keeping connections alive..."
-while true; do
-    if [ "$openfaas" = true ]; then nc -vz 127.0.0.1 8080; fi
-    sleep 60
 done
