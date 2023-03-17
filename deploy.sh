@@ -162,7 +162,7 @@ if [ "$openfaas" = true ]; then
     helm install openfaas openfaas/openfaas \
         --namespace openfaas \
         --set functionNamespace=$DEV_NS \
-        --set generateBasicAuth=true \
+        --set basic_auth=false \
         --set gateway.upstreamTimeout=$TIMEOUT \
         --set gateway.writeTimeout=$TIMEOUT \
         --set gateway.readTimeout=$TIMEOUT \
@@ -206,8 +206,8 @@ if [ "$openfaas" = true ]; then
     kubectl rollout status -n openfaas deploy/gateway
     log "INFO" "please wait..."
     sleep 5
-    PASSWORD=$(kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode)
-    echo -n $PASSWORD | faas login -g http://127.0.0.1:31112 -u admin -s
+    # PASSWORD=$(kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode)
+    # echo -n $PASSWORD | faas login -g http://127.0.0.1:31112 -u admin -s
     log "DONE" "openfaas deployed successfully"
     log "INFO" "testing openfaas..."
     faas deploy -g http://127.0.0.1:31112 --image fcarp10/hello-world --name hello-world
